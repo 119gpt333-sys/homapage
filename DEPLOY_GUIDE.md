@@ -14,7 +14,7 @@ git remote add origin https://github.com/YOUR_USERNAME/homapage.git
 git branch -M main
 git push -u origin main
 ```
-`YOUR_USERNAME`을 본인 GitHub 사용자명으로 변경
+`YOUR_USERNAME`을 본인 GitHub 사용자명으로 변경 (예: 119gpt333-7787)
 
 ---
 
