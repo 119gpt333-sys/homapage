@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { KnowledgePost } from '../types/knowledge'
+import type { KnowledgePost, PostComment } from '../types/knowledge'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -131,6 +131,37 @@ function saveLocalPosts(posts: KnowledgePost[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(posts))
 }
 
+const VIEW_COUNT_OVERRIDES_KEY = 'seoul-fire-gpt-view-counts'
+
+function getViewCountOverrides(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(VIEW_COUNT_OVERRIDES_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveViewCountOverrides(map: Record<string, number>) {
+  localStorage.setItem(VIEW_COUNT_OVERRIDES_KEY, JSON.stringify(map))
+}
+
+/** 로컬(샘플) 게시글 표시용 조회수 */
+export function getDisplayViewCountForPost(post: KnowledgePost): number {
+  if (!isLocal()) return post.view_count ?? 0
+  const userPosts = getLocalPosts()
+  if (userPosts.some((p) => p.id === post.id)) return post.view_count ?? 0
+  const o = getViewCountOverrides()[post.id]
+  return o !== undefined ? o : (post.view_count ?? 0)
+}
+
+function mergeLocalViewCounts(posts: KnowledgePost[]): KnowledgePost[] {
+  return posts.map((p) => ({
+    ...p,
+    view_count: getDisplayViewCountForPost(p),
+  }))
+}
+
 // ─── Image upload ───
 
 export async function uploadImage(file: File): Promise<string> {
@@ -176,7 +207,10 @@ export async function fetchPostsByCategory(
     if (options?.excludeCategories?.length) {
       filtered = filtered.filter((p) => !options.excludeCategories!.includes(p.category))
     }
-    return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const sorted = filtered.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
+    return mergeLocalViewCounts(sorted)
   }
 
   let query = supabase!
@@ -202,7 +236,9 @@ export async function fetchPostsByCategory(
 
 export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
   if (isLocal()) {
-    return getLocalPostsOrSamples().find((p) => p.id === id) ?? null
+    const p = getLocalPostsOrSamples().find((x) => x.id === id) ?? null
+    if (!p) return null
+    return { ...p, view_count: getDisplayViewCountForPost(p) }
   }
 
   const { data, error } = await supabase!
@@ -216,6 +252,125 @@ export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
     return null
   }
   return data as KnowledgePost
+}
+
+/** 게시글 조회수 +1 (페이지 진입 시 1회). 새 조회수 반환. */
+export async function incrementPostViewCount(postId: string): Promise<number | null> {
+  if (isLocal()) {
+    const posts = getLocalPosts()
+    const idx = posts.findIndex((p) => p.id === postId)
+    if (idx !== -1) {
+      const next = Math.max(0, posts[idx].view_count ?? 0) + 1
+      posts[idx] = { ...posts[idx], view_count: next }
+      saveLocalPosts(posts)
+      return next
+    }
+    const samples = SAMPLE_POSTS
+    const sample = samples.find((p) => p.id === postId)
+    if (sample) {
+      const overrides = getViewCountOverrides()
+      const base = sample.view_count ?? 0
+      const prev = overrides[postId] ?? base
+      const next = prev + 1
+      overrides[postId] = next
+      saveViewCountOverrides(overrides)
+      return next
+    }
+    return null
+  }
+
+  const { error: rpcError } = await supabase!.rpc('increment_post_view_count', { p_post_id: postId })
+  if (rpcError) {
+    console.error('[Supabase] incrementPostViewCount rpc', rpcError)
+    return null
+  }
+  const { data, error } = await supabase!
+    .from('knowledge_posts')
+    .select('view_count')
+    .eq('id', postId)
+    .single()
+  if (error) {
+    console.error('[Supabase] incrementPostViewCount select', error)
+    return null
+  }
+  return (data as { view_count: number | null })?.view_count ?? null
+}
+
+// ─── Comments ───
+
+const COMMENTS_STORAGE_KEY = 'seoul-fire-gpt-comments'
+
+function getLocalCommentsMap(): Record<string, PostComment[]> {
+  try {
+    const raw = localStorage.getItem(COMMENTS_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, PostComment[]>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveLocalCommentsMap(map: Record<string, PostComment[]>) {
+  localStorage.setItem(COMMENTS_STORAGE_KEY, JSON.stringify(map))
+}
+
+export async function fetchComments(postId: string): Promise<PostComment[]> {
+  if (isLocal()) {
+    const list = getLocalCommentsMap()[postId] ?? []
+    return [...list].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  }
+
+  const { data, error } = await supabase!
+    .from('post_comments')
+    .select('*')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('[Supabase] fetchComments', error)
+    return []
+  }
+  return (data ?? []) as PostComment[]
+}
+
+export async function createComment(
+  postId: string,
+  body: string,
+  authorDisplayName?: string | null
+): Promise<PostComment> {
+  const trimmed = body.trim()
+  if (!trimmed) throw new Error('댓글 내용을 입력해 주세요.')
+  if (trimmed.length > 4000) throw new Error('댓글은 4,000자 이하로 작성해 주세요.')
+
+  if (isLocal()) {
+    const map = getLocalCommentsMap()
+    const list = map[postId] ?? []
+    const row: PostComment = {
+      id: crypto.randomUUID(),
+      post_id: postId,
+      body: trimmed,
+      author_display_name: authorDisplayName?.trim() || null,
+      created_at: new Date().toISOString(),
+    }
+    map[postId] = [...list, row]
+    saveLocalCommentsMap(map)
+    return row
+  }
+
+  const { data, error } = await supabase!
+    .from('post_comments')
+    .insert({
+      post_id: postId,
+      body: trimmed,
+      author_display_name: authorDisplayName?.trim() || null,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error('[Supabase] createComment', error)
+    throw new Error(error.message || '댓글 등록에 실패했습니다.')
+  }
+  return data as PostComment
 }
 
 interface CreatePostPayload {

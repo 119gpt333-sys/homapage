@@ -12,6 +12,7 @@ import {
   Trash2,
   BookOpen,
   Youtube,
+  Eye,
 } from 'lucide-react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import type { KnowledgePost, CategoryCode } from '../types/knowledge'
@@ -232,6 +233,10 @@ export function HomePage() {
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
+                    <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                      <Eye className="h-3 w-3 shrink-0" />
+                      조회 {post.view_count ?? 0}
+                    </span>
                     <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                       {new Date(post.created_at).toLocaleDateString('ko-KR')}
                     </span>
@@ -399,9 +404,11 @@ export function HomePage() {
 
                   <div className="mt-4 flex items-center justify-between border-t pt-3"
                     style={{ borderColor: 'var(--color-border)' }}>
-                    <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                    <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                      <Eye className="h-3 w-3 shrink-0" />
                       {post.author_display_name || '익명 기여'}
-                      {post.view_count != null ? ` · 조회 ${post.view_count}` : ''}
+                      {' · 조회 '}
+                      {post.view_count ?? 0}
                     </span>
                     <span className="flex items-center gap-1 text-[11px] font-medium transition-colors group-hover:underline"
                       style={{ color: 'var(--color-accent-light)' }}>

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
-import { ArrowLeft, Eye, User, Calendar, Flame, Pencil, Trash2 } from 'lucide-react'
-import { fetchPostById } from '../lib/supabaseClient'
+import { ArrowLeft, Eye, User, Calendar, Flame, Pencil, Trash2, MessageCircle } from 'lucide-react'
+import { fetchPostById, incrementPostViewCount } from '../lib/supabaseClient'
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal'
+import { PostComments } from '../components/PostComments'
 import { LinkifyText } from '../lib/linkifyText'
 import { extractUrlsFromMarkdown } from '../lib/linkEmbed'
 import { LinkEmbeds } from '../components/LinkEmbed'
@@ -28,6 +29,7 @@ export function PostDetailPage() {
   const [post, setPost] = useState<KnowledgePost | null>(null)
   const [loading, setLoading] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const viewIncrementedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -38,6 +40,16 @@ export function PostDetailPage() {
       if (!cancelled) { setPost(data); setLoading(false) }
     })()
     return () => { cancelled = true }
+  }, [id])
+
+  /** 상세 진입 시 조회수 +1 (React Strict Mode 중복 호출 방지) */
+  useEffect(() => {
+    if (!id) return
+    if (viewIncrementedRef.current === id) return
+    viewIncrementedRef.current = id
+    void incrementPostViewCount(id).then((n) => {
+      if (n != null) setPost((p) => (p ? { ...p, view_count: n } : p))
+    })
   }, [id])
 
   if (loading) {
@@ -147,10 +159,20 @@ export function PostDetailPage() {
           style={{ color: 'var(--color-text-muted)' }}>
           <span className="flex items-center gap-1"><User className="h-3 w-3" />{post.author_display_name || '익명 기여'}</span>
           <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(post.created_at).toLocaleString('ko-KR')}</span>
-          {post.view_count != null && (
-            <span className="flex items-center gap-1"><Eye className="h-3 w-3" />조회 {post.view_count}</span>
-          )}
+          <span className="flex items-center gap-1"><Eye className="h-3 w-3" />조회 {post.view_count ?? 0}</span>
         </div>
+        <a
+          href="#comments"
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-90"
+          style={{
+            color: 'var(--color-accent-light)',
+            background: 'rgba(220,38,38,0.12)',
+            border: '1px solid rgba(220,38,38,0.35)',
+          }}
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          댓글 작성 · 본문 맨 아래
+        </a>
       </header>
 
       {/* Summary box with red border */}
@@ -213,6 +235,8 @@ export function PostDetailPage() {
           </ReactMarkdown>
         </div>
       </article>
+
+      <PostComments postId={post.id} />
     </div>
   )
 }

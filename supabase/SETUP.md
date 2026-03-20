@@ -8,8 +8,9 @@
 
 ### 2) 스키마 적용
 1. **SQL Editor** → **New query**
-2. `schema.sql` 전체 복사 후 실행
-3. (선택) `seed.sql` 실행 → 샘플 게시글 추가
+2. `schema.sql` 전체 복사 후 실행 (또는 최초 한 번 `SETUP_FULL.sql`)
+3. **댓글·조회수 RPC**: `migrations/add_post_comments_and_view_rpc.sql` 실행 (또는 `SETUP_FULL.sql`에 포함된 경우 생략)
+4. (선택) `seed.sql` 실행 → 샘플 게시글 추가
 
 ### 3) Storage 버킷 생성
 1. **Storage** → **New bucket**

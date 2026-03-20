@@ -24,3 +24,12 @@ export interface KnowledgePost {
   view_count: number
 }
 
+/** 게시글 댓글 */
+export interface PostComment {
+  id: string
+  post_id: string
+  body: string
+  author_display_name: string | null
+  created_at: string
+}
+
