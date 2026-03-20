@@ -53,7 +53,7 @@ export function PostComments({ postId }: PostCommentsProps) {
   return (
     <section
       id="comments"
-      className="scroll-mt-28 mt-10 min-h-[280px] rounded-2xl p-5 md:p-6"
+      className="scroll-mt-28 mt-2 min-h-[240px] rounded-2xl p-5 md:p-6"
       style={{
         background: 'var(--color-card)',
         border: '1px solid var(--color-border)',
@@ -67,7 +67,7 @@ export function PostComments({ postId }: PostCommentsProps) {
           댓글 {comments.length > 0 ? `(${comments.length})` : ''}
         </h2>
         <span className="text-xs font-normal" style={{ color: 'var(--color-text-muted)' }}>
-          본문을 읽은 뒤 여기서 의견을 남겨 주세요
+          이 글에 대한 의견을 남겨 주세요
         </span>
       </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
-import { ArrowLeft, Eye, User, Calendar, Flame, Pencil, Trash2, MessageCircle } from 'lucide-react'
+import { ArrowLeft, Eye, User, Calendar, Flame, Pencil, Trash2 } from 'lucide-react'
 import { fetchPostById, incrementPostViewCount } from '../lib/supabaseClient'
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal'
 import { PostComments } from '../components/PostComments'
@@ -161,18 +161,9 @@ export function PostDetailPage() {
           <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(post.created_at).toLocaleString('ko-KR')}</span>
           <span className="flex items-center gap-1"><Eye className="h-3 w-3" />조회 {post.view_count ?? 0}</span>
         </div>
-        <a
-          href="#comments"
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-90"
-          style={{
-            color: 'var(--color-accent-light)',
-            background: 'rgba(220,38,38,0.12)',
-            border: '1px solid rgba(220,38,38,0.35)',
-          }}
-        >
-          <MessageCircle className="h-3.5 w-3.5" />
-          댓글 작성 · 본문 맨 아래
-        </a>
+        <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+          이 글 하단에 <strong style={{ color: 'var(--color-text-secondary)' }}>댓글</strong>을 남길 수 있습니다. 요약 바로 아래에 댓글창이 있습니다.
+        </p>
       </header>
 
       {/* Summary box with red border */}
@@ -189,6 +180,9 @@ export function PostDetailPage() {
           <LinkifyText>{post.summary}</LinkifyText>
         </p>
       </div>
+
+      {/* 댓글: 본문보다 위에 두어 스크롤 없이도 보이게 함 */}
+      <PostComments postId={post.id} />
 
       {/* 링크 임베드 - 자기 사이트·이미지 URL 제외 (중복 표시 및 CORS 방지) */}
       {(() => {
@@ -236,7 +230,11 @@ export function PostDetailPage() {
         </div>
       </article>
 
-      <PostComments postId={post.id} />
+      <p className="text-center text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+        <a href="#comments" className="font-medium underline underline-offset-2" style={{ color: 'var(--color-accent-light)' }}>
+          ↑ 댓글은 요약 아래에 있습니다
+        </a>
+      </p>
     </div>
   )
 }
