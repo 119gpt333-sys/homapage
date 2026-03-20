@@ -169,6 +169,13 @@ export function PageShell({ children }: PageShellProps) {
             <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
               검증된 정보만 제공합니다.
             </span>
+            <span
+              className="text-[10px] font-mono tabular-nums"
+              style={{ color: 'var(--color-text-muted)' }}
+              title="최신 배포인지 확인: GitHub main과 같은 짧은 커밋이면 동일 빌드입니다. local이면 개발 모드입니다."
+            >
+              빌드 {__GIT_SHA__}
+            </span>
           </div>
         </div>
       </footer>
