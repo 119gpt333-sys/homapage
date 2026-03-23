@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Flame, PenLine, Menu, X, Database, CheckCircle, XCircle } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { getSupabaseStatus, testSupabaseConnection } from '../../lib/supabaseClient'
+import { getSupabaseStatus, isDeploymentMissingSupabase, testSupabaseConnection } from '../../lib/supabaseClient'
 
 interface PageShellProps {
   children: ReactNode
@@ -26,8 +26,26 @@ export function PageShell({ children }: PageShellProps) {
     }
   }, [])
 
+  const showConfigError = isDeploymentMissingSupabase()
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-background)' }}>
+      {showConfigError && (
+        <div
+          className="sticky top-0 z-[100] border-b px-4 py-3 text-center text-sm leading-snug"
+          role="alert"
+          style={{
+            background: 'rgba(127, 29, 29, 0.95)',
+            borderColor: 'rgba(252, 165, 165, 0.4)',
+            color: '#fecaca',
+          }}
+        >
+          <strong className="text-white">배포 환경 변수 누락:</strong> Vercel 프로젝트에{' '}
+          <code className="rounded bg-black/30 px-1 py-0.5 text-xs">VITE_SUPABASE_URL</code>,{' '}
+          <code className="rounded bg-black/30 px-1 py-0.5 text-xs">VITE_SUPABASE_ANON_KEY</code>를
+          등록한 뒤 <strong className="text-white">Redeploy</strong> 해 주세요. (로컬 .env.local은 배포에 포함되지 않습니다.)
+        </div>
+      )}
       {/* Header */}
       <header className="sticky top-0 z-50 glass">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 md:px-8">

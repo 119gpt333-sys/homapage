@@ -26,8 +26,17 @@ export function getSupabase(): SupabaseClient | null {
   return supabase
 }
 
-function isLocal(): boolean {
-  return !supabase
+/**
+ * 로컬 개발(`npm run dev`)에서만 .env 없을 때 localStorage·샘플 데이터 사용.
+ * 프로덕션 빌드에서는 절대 사용하지 않음 — 배포 시 env 누락으로 "로컬처럼" 동작하는 문제 방지.
+ */
+function useDevStorageFallback(): boolean {
+  return import.meta.env.DEV && !supabase
+}
+
+/** 프로덕션인데 클라이언트 Supabase 환경 변수 없음 (Vercel 설정 필요) */
+export function isDeploymentMissingSupabase(): boolean {
+  return import.meta.env.PROD && !supabase
 }
 
 /** Supabase 연동 상태 */
@@ -148,7 +157,7 @@ function saveViewCountOverrides(map: Record<string, number>) {
 
 /** 로컬(샘플) 게시글 표시용 조회수 */
 export function getDisplayViewCountForPost(post: KnowledgePost): number {
-  if (!isLocal()) return post.view_count ?? 0
+  if (!useDevStorageFallback()) return post.view_count ?? 0
   const userPosts = getLocalPosts()
   if (userPosts.some((p) => p.id === post.id)) return post.view_count ?? 0
   const o = getViewCountOverrides()[post.id]
@@ -164,15 +173,22 @@ function mergeLocalViewCounts(posts: KnowledgePost[]): KnowledgePost[] {
 
 // ─── Image upload ───
 
+const ERR_NO_SUPABASE_CLIENT =
+  'Supabase가 설정되지 않았습니다. Vercel → Project → Settings → Environment Variables에 VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY를 넣고 Redeploy 하세요.'
+
 export async function uploadImage(file: File): Promise<string> {
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     return URL.createObjectURL(file)
+  }
+
+  if (!supabase) {
+    throw new Error(ERR_NO_SUPABASE_CLIENT)
   }
 
   const ext = file.name.split('.').pop() ?? 'jpg'
   const path = `posts/${crypto.randomUUID()}.${ext}`
 
-  const { error } = await supabase!.storage
+  const { error } = await supabase.storage
     .from('post-images')
     .upload(path, file, { contentType: file.type, upsert: false })
 
@@ -186,7 +202,7 @@ export async function uploadImage(file: File): Promise<string> {
     )
   }
 
-  const { data: urlData } = supabase!.storage
+  const { data: urlData } = supabase.storage
     .from('post-images')
     .getPublicUrl(path)
 
@@ -199,7 +215,7 @@ export async function fetchPostsByCategory(
   category?: string,
   options?: { excludeCategories?: string[] }
 ): Promise<KnowledgePost[]> {
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     const posts = getLocalPostsOrSamples()
     let filtered = category && category !== 'ALL'
       ? posts.filter((p) => p.category === category)
@@ -213,7 +229,11 @@ export async function fetchPostsByCategory(
     return mergeLocalViewCounts(sorted)
   }
 
-  let query = supabase!
+  if (!supabase) {
+    return []
+  }
+
+  let query = supabase
     .from('knowledge_posts')
     .select('*')
     .order('created_at', { ascending: false })
@@ -235,13 +255,15 @@ export async function fetchPostsByCategory(
 }
 
 export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     const p = getLocalPostsOrSamples().find((x) => x.id === id) ?? null
     if (!p) return null
     return { ...p, view_count: getDisplayViewCountForPost(p) }
   }
 
-  const { data, error } = await supabase!
+  if (!supabase) return null
+
+  const { data, error } = await supabase
     .from('knowledge_posts')
     .select('*')
     .eq('id', id)
@@ -256,7 +278,7 @@ export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
 
 /** 게시글 조회수 +1 (페이지 진입 시 1회). 새 조회수 반환. */
 export async function incrementPostViewCount(postId: string): Promise<number | null> {
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     const posts = getLocalPosts()
     const idx = posts.findIndex((p) => p.id === postId)
     if (idx !== -1) {
@@ -279,12 +301,14 @@ export async function incrementPostViewCount(postId: string): Promise<number | n
     return null
   }
 
-  const { error: rpcError } = await supabase!.rpc('increment_post_view_count', { p_post_id: postId })
+  if (!supabase) return null
+
+  const { error: rpcError } = await supabase.rpc('increment_post_view_count', { p_post_id: postId })
   if (rpcError) {
     console.error('[Supabase] incrementPostViewCount rpc', rpcError)
     return null
   }
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('knowledge_posts')
     .select('view_count')
     .eq('id', postId)
@@ -314,12 +338,14 @@ function saveLocalCommentsMap(map: Record<string, PostComment[]>) {
 }
 
 export async function fetchComments(postId: string): Promise<PostComment[]> {
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     const list = getLocalCommentsMap()[postId] ?? []
     return [...list].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   }
 
-  const { data, error } = await supabase!
+  if (!supabase) return []
+
+  const { data, error } = await supabase
     .from('post_comments')
     .select('*')
     .eq('post_id', postId)
@@ -341,7 +367,7 @@ export async function createComment(
   if (!trimmed) throw new Error('댓글 내용을 입력해 주세요.')
   if (trimmed.length > 4000) throw new Error('댓글은 4,000자 이하로 작성해 주세요.')
 
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     const map = getLocalCommentsMap()
     const list = map[postId] ?? []
     const row: PostComment = {
@@ -356,7 +382,11 @@ export async function createComment(
     return row
   }
 
-  const { data, error } = await supabase!
+  if (!supabase) {
+    throw new Error(ERR_NO_SUPABASE_CLIENT)
+  }
+
+  const { data, error } = await supabase
     .from('post_comments')
     .insert({
       post_id: postId,
@@ -384,7 +414,7 @@ interface CreatePostPayload {
 }
 
 export async function createPost(payload: CreatePostPayload): Promise<KnowledgePost> {
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     const now = new Date().toISOString()
     const newPost: KnowledgePost = {
       id: crypto.randomUUID(),
@@ -405,7 +435,11 @@ export async function createPost(payload: CreatePostPayload): Promise<KnowledgeP
     return newPost
   }
 
-  const { data, error } = await supabase!
+  if (!supabase) {
+    throw new Error(ERR_NO_SUPABASE_CLIENT)
+  }
+
+  const { data, error } = await supabase
     .from('knowledge_posts')
     .insert({ ...payload })
     .select('*')
@@ -429,7 +463,7 @@ interface UpdatePostPayload {
 }
 
 export async function updatePost(id: string, payload: UpdatePostPayload): Promise<KnowledgePost | null> {
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     const posts = getLocalPosts()
     const idx = posts.findIndex((p) => p.id === id)
     if (idx === -1) return null
@@ -445,6 +479,10 @@ export async function updatePost(id: string, payload: UpdatePostPayload): Promis
     return updated
   }
 
+  if (!supabase) {
+    throw new Error(ERR_NO_SUPABASE_CLIENT)
+  }
+
   const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   }
@@ -456,7 +494,7 @@ export async function updatePost(id: string, payload: UpdatePostPayload): Promis
   if (payload.image_urls !== undefined) updateData.image_urls = payload.image_urls
   if (payload.author_display_name !== undefined) updateData.author_display_name = payload.author_display_name
 
-  const { data, error } = await supabase!
+  const { data, error } = await supabase
     .from('knowledge_posts')
     .update(updateData)
     .eq('id', id)
@@ -473,7 +511,7 @@ export async function updatePost(id: string, payload: UpdatePostPayload): Promis
 // ─── Delete (관리자 전용, API 경유) ───
 
 export async function deletePost(id: string, password: string): Promise<{ ok: boolean; error?: string }> {
-  if (isLocal()) {
+  if (useDevStorageFallback()) {
     const posts = getLocalPosts()
     const isSample = SAMPLE_POSTS.some((p) => p.id === id)
     if (isSample) {
