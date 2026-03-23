@@ -13,8 +13,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!adminPassword || !serviceKey) return res.status(500).json({ error: '서버 설정 오류' })
   if (password !== adminPassword) return res.status(403).json({ error: '비밀번호 오류' })
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL
-  if (!supabaseUrl) return res.status(500).json({ error: 'VITE_SUPABASE_URL 미설정' })
+  const supabaseUrl =
+    process.env.VITE_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim()
+  if (!supabaseUrl) {
+    return res.status(500).json({ error: 'Supabase URL 미설정 (VITE_SUPABASE_URL 또는 SUPABASE_URL)' })
+  }
 
   const supabase = createClient(supabaseUrl, serviceKey)
 

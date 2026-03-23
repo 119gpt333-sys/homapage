@@ -4,26 +4,77 @@ import type { KnowledgePost, PostComment } from '../types/knowledge'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-// 배포 환경에서 환경 변수 누락 시 콘솔에 진단 출력
-if (import.meta.env.PROD && typeof window !== 'undefined') {
-  const hasUrl = !!SUPABASE_URL
-  const hasKey = !!SUPABASE_ANON_KEY
-  if (!hasUrl || !hasKey) {
-    console.warn(
-      '[Supabase] 환경 변수 누락:',
-      { VITE_SUPABASE_URL: hasUrl ? '설정됨' : '없음', VITE_SUPABASE_ANON_KEY: hasKey ? '설정됨' : '없음' },
-      '→ Vercel Settings → Environment Variables에서 추가 후 Redeploy'
-    )
+/** 브라우저에서 설정 저장 후 UI 갱신용 */
+export const SUPABASE_RUNTIME_CONFIG_EVENT = 'supabase-runtime-config-updated'
+
+const RUNTIME_SB_URL_KEY = 'seoul-fire-gpt-runtime-supabase-url'
+const RUNTIME_SB_ANON_KEY = 'seoul-fire-gpt-runtime-supabase-anon-key'
+
+const supabaseFromEnv: SupabaseClient | null =
+  SUPABASE_URL?.trim() && SUPABASE_ANON_KEY?.trim()
+    ? createClient(SUPABASE_URL.trim(), SUPABASE_ANON_KEY.trim(), { auth: { persistSession: false } })
+    : null
+
+let runtimeClient: SupabaseClient | null = null
+let runtimeClientSig = ''
+
+function getRuntimeCredentials(): { url: string; key: string } | null {
+  if (typeof window === 'undefined') return null
+  const url = localStorage.getItem(RUNTIME_SB_URL_KEY)?.trim()
+  const key = localStorage.getItem(RUNTIME_SB_ANON_KEY)?.trim()
+  if (!url || !key) return null
+  return { url, key }
+}
+
+function clearRuntimeClientCache() {
+  runtimeClient = null
+  runtimeClientSig = ''
+}
+
+function getOrCreateRuntimeClient(): SupabaseClient | null {
+  const creds = getRuntimeCredentials()
+  if (!creds) return null
+  const sig = `${creds.url}\0${creds.key}`
+  if (runtimeClient && runtimeClientSig === sig) return runtimeClient
+  runtimeClient = createClient(creds.url, creds.key, { auth: { persistSession: false } })
+  runtimeClientSig = sig
+  return runtimeClient
+}
+
+/** 빌드 시 env 우선, 없으면 이 브라우저 localStorage 런타임 설정 */
+function getActiveClient(): SupabaseClient | null {
+  if (supabaseFromEnv) return supabaseFromEnv
+  return getOrCreateRuntimeClient()
+}
+
+export function saveRuntimeSupabaseConfig(url: string, anonKey: string): void {
+  const u = url.trim()
+  const k = anonKey.trim()
+  if (!u || !k) throw new Error('Project URL과 anon(publishable) 키를 모두 입력해 주세요.')
+  localStorage.setItem(RUNTIME_SB_URL_KEY, u)
+  localStorage.setItem(RUNTIME_SB_ANON_KEY, k)
+  clearRuntimeClientCache()
+  window.dispatchEvent(new CustomEvent(SUPABASE_RUNTIME_CONFIG_EVENT))
+}
+
+export function clearRuntimeSupabaseConfig(): void {
+  localStorage.removeItem(RUNTIME_SB_URL_KEY)
+  localStorage.removeItem(RUNTIME_SB_ANON_KEY)
+  clearRuntimeClientCache()
+  window.dispatchEvent(new CustomEvent(SUPABASE_RUNTIME_CONFIG_EVENT))
+}
+
+/** 설정 모달 초기값용 (브라우저 전용) */
+export function getRuntimeSupabaseFormValues(): { url: string; anonKey: string } {
+  if (typeof window === 'undefined') return { url: '', anonKey: '' }
+  return {
+    url: localStorage.getItem(RUNTIME_SB_URL_KEY) ?? '',
+    anonKey: localStorage.getItem(RUNTIME_SB_ANON_KEY) ?? '',
   }
 }
 
-const supabase: SupabaseClient | null =
-  SUPABASE_URL && SUPABASE_ANON_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
-    : null
-
 export function getSupabase(): SupabaseClient | null {
-  return supabase
+  return getActiveClient()
 }
 
 /**
@@ -31,29 +82,38 @@ export function getSupabase(): SupabaseClient | null {
  * 프로덕션 빌드에서는 절대 사용하지 않음 — 배포 시 env 누락으로 "로컬처럼" 동작하는 문제 방지.
  */
 function useDevStorageFallback(): boolean {
-  return import.meta.env.DEV && !supabase
+  return import.meta.env.DEV && !getActiveClient()
 }
 
-/** 프로덕션인데 클라이언트 Supabase 환경 변수 없음 (Vercel 설정 필요) */
+/** 프로덕션에서 Supabase 클라이언트 없음 (빌드 env·브라우저 저장 모두 없음) */
 export function isDeploymentMissingSupabase(): boolean {
-  return import.meta.env.PROD && !supabase
+  if (!import.meta.env.PROD) return false
+  if (typeof window === 'undefined') return !supabaseFromEnv
+  return !getActiveClient()
 }
 
 /** Supabase 연동 상태 */
 export function getSupabaseStatus(): { connected: boolean } {
-  return { connected: !!supabase }
+  return { connected: !!getActiveClient() }
 }
 
 /** Supabase 실제 연결 테스트 */
 export async function testSupabaseConnection(): Promise<{ ok: boolean; error?: string }> {
-  if (!supabase) return { ok: false, error: '환경 변수가 설정되지 않았습니다.' }
+  const sb = getActiveClient()
+  if (!sb) return { ok: false, error: 'Supabase가 설정되지 않았습니다.' }
   try {
-    const { error } = await supabase.from('knowledge_posts').select('id').limit(1)
+    const { error } = await sb.from('knowledge_posts').select('id').limit(1)
     if (error) return { ok: false, error: error.message }
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : '연결 실패' }
   }
+}
+
+if (import.meta.env.PROD && typeof window !== 'undefined' && !supabaseFromEnv && !getRuntimeCredentials()) {
+  console.warn(
+    '[Supabase] 빌드에 URL/anon 키 없음. 상단에서 브라우저에 저장하거나 Vercel 환경 변수를 설정하세요.',
+  )
 }
 
 // ─── localStorage fallback ───
@@ -174,21 +234,22 @@ function mergeLocalViewCounts(posts: KnowledgePost[]): KnowledgePost[] {
 // ─── Image upload ───
 
 const ERR_NO_SUPABASE_CLIENT =
-  'Supabase가 설정되지 않았습니다. Vercel → Project → Settings → Environment Variables에 VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY를 넣고 Redeploy 하세요.'
+  'Supabase가 설정되지 않았습니다. 상단의 Supabase 연결에서 URL·anon 키를 저장하거나, Vercel 환경 변수를 설정하세요.'
 
 export async function uploadImage(file: File): Promise<string> {
   if (useDevStorageFallback()) {
     return URL.createObjectURL(file)
   }
 
-  if (!supabase) {
+  const sb = getActiveClient()
+  if (!sb) {
     throw new Error(ERR_NO_SUPABASE_CLIENT)
   }
 
   const ext = file.name.split('.').pop() ?? 'jpg'
   const path = `posts/${crypto.randomUUID()}.${ext}`
 
-  const { error } = await supabase.storage
+  const { error } = await sb.storage
     .from('post-images')
     .upload(path, file, { contentType: file.type, upsert: false })
 
@@ -202,7 +263,7 @@ export async function uploadImage(file: File): Promise<string> {
     )
   }
 
-  const { data: urlData } = supabase.storage
+  const { data: urlData } = sb.storage
     .from('post-images')
     .getPublicUrl(path)
 
@@ -229,11 +290,12 @@ export async function fetchPostsByCategory(
     return mergeLocalViewCounts(sorted)
   }
 
-  if (!supabase) {
+  const sb = getActiveClient()
+  if (!sb) {
     return []
   }
 
-  let query = supabase
+  let query = sb
     .from('knowledge_posts')
     .select('*')
     .order('created_at', { ascending: false })
@@ -261,9 +323,10 @@ export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
     return { ...p, view_count: getDisplayViewCountForPost(p) }
   }
 
-  if (!supabase) return null
+  const sb = getActiveClient()
+  if (!sb) return null
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('knowledge_posts')
     .select('*')
     .eq('id', id)
@@ -301,14 +364,15 @@ export async function incrementPostViewCount(postId: string): Promise<number | n
     return null
   }
 
-  if (!supabase) return null
+  const sb = getActiveClient()
+  if (!sb) return null
 
-  const { error: rpcError } = await supabase.rpc('increment_post_view_count', { p_post_id: postId })
+  const { error: rpcError } = await sb.rpc('increment_post_view_count', { p_post_id: postId })
   if (rpcError) {
     console.error('[Supabase] incrementPostViewCount rpc', rpcError)
     return null
   }
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('knowledge_posts')
     .select('view_count')
     .eq('id', postId)
@@ -343,9 +407,10 @@ export async function fetchComments(postId: string): Promise<PostComment[]> {
     return [...list].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   }
 
-  if (!supabase) return []
+  const sb = getActiveClient()
+  if (!sb) return []
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('post_comments')
     .select('*')
     .eq('post_id', postId)
@@ -382,11 +447,12 @@ export async function createComment(
     return row
   }
 
-  if (!supabase) {
+  const sb = getActiveClient()
+  if (!sb) {
     throw new Error(ERR_NO_SUPABASE_CLIENT)
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('post_comments')
     .insert({
       post_id: postId,
@@ -435,11 +501,12 @@ export async function createPost(payload: CreatePostPayload): Promise<KnowledgeP
     return newPost
   }
 
-  if (!supabase) {
+  const sb = getActiveClient()
+  if (!sb) {
     throw new Error(ERR_NO_SUPABASE_CLIENT)
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('knowledge_posts')
     .insert({ ...payload })
     .select('*')
@@ -479,7 +546,8 @@ export async function updatePost(id: string, payload: UpdatePostPayload): Promis
     return updated
   }
 
-  if (!supabase) {
+  const sb = getActiveClient()
+  if (!sb) {
     throw new Error(ERR_NO_SUPABASE_CLIENT)
   }
 
@@ -494,7 +562,7 @@ export async function updatePost(id: string, payload: UpdatePostPayload): Promis
   if (payload.image_urls !== undefined) updateData.image_urls = payload.image_urls
   if (payload.author_display_name !== undefined) updateData.author_display_name = payload.author_display_name
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('knowledge_posts')
     .update(updateData)
     .eq('id', id)

@@ -1,8 +1,14 @@
 import type { ReactNode } from 'react'
 import { Flame, PenLine, Menu, X, Database, CheckCircle, XCircle } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { getSupabaseStatus, isDeploymentMissingSupabase, testSupabaseConnection } from '../../lib/supabaseClient'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  getSupabaseStatus,
+  isDeploymentMissingSupabase,
+  testSupabaseConnection,
+  SUPABASE_RUNTIME_CONFIG_EVENT,
+} from '../../lib/supabaseClient'
+import { SupabaseConfigModal } from './SupabaseConfigModal'
 
 interface PageShellProps {
   children: ReactNode
@@ -16,15 +22,26 @@ export function PageShell({ children }: PageShellProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [supabaseModalOpen, setSupabaseModalOpen] = useState(false)
   const [supabaseStatus, setSupabaseStatus] = useState<{ env: boolean; connection: boolean | null }>({ env: false, connection: null })
 
-  useEffect(() => {
+  const refreshSupabaseStatus = useCallback(() => {
     const { connected } = getSupabaseStatus()
-    setSupabaseStatus((s) => ({ ...s, env: connected }))
+    setSupabaseStatus((s) => ({ ...s, env: connected, connection: connected ? null : false }))
     if (connected) {
       testSupabaseConnection().then((r) => setSupabaseStatus((s) => ({ ...s, connection: r.ok })))
     }
   }, [])
+
+  useEffect(() => {
+    refreshSupabaseStatus()
+  }, [refreshSupabaseStatus])
+
+  useEffect(() => {
+    const onCfg = () => refreshSupabaseStatus()
+    window.addEventListener(SUPABASE_RUNTIME_CONFIG_EVENT, onCfg)
+    return () => window.removeEventListener(SUPABASE_RUNTIME_CONFIG_EVENT, onCfg)
+  }, [refreshSupabaseStatus])
 
   const showConfigError = isDeploymentMissingSupabase()
 
@@ -40,12 +57,26 @@ export function PageShell({ children }: PageShellProps) {
             color: '#fecaca',
           }}
         >
-          <strong className="text-white">배포 환경 변수 누락:</strong> Vercel 프로젝트에{' '}
+          <strong className="text-white">Supabase 미연결:</strong> Vercel에{' '}
           <code className="rounded bg-black/30 px-1 py-0.5 text-xs">VITE_SUPABASE_URL</code>,{' '}
           <code className="rounded bg-black/30 px-1 py-0.5 text-xs">VITE_SUPABASE_ANON_KEY</code>를
-          등록한 뒤 <strong className="text-white">Redeploy</strong> 해 주세요. (로컬 .env.local은 배포에 포함되지 않습니다.)
+          넣고 Redeploy 하거나,{' '}
+          <button
+            type="button"
+            onClick={() => setSupabaseModalOpen(true)}
+            className="mx-1 inline font-semibold text-white underline decoration-red-300 underline-offset-2 hover:decoration-white"
+          >
+            여기서 URL·키를 입력해 이 브라우저에 저장
+          </button>
+          할 수 있습니다.
         </div>
       )}
+
+      <SupabaseConfigModal
+        open={supabaseModalOpen}
+        onClose={() => setSupabaseModalOpen(false)}
+        onApplied={() => refreshSupabaseStatus()}
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 glass">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 md:px-8">
@@ -162,15 +193,22 @@ export function PageShell({ children }: PageShellProps) {
                 ? supabaseStatus.connection === true
                   ? 'Supabase 연결됨'
                   : supabaseStatus.connection === false
-                    ? 'Supabase 연결 실패 (Vercel 환경 변수 확인)'
+                    ? 'Supabase 연결 실패 (URL·키·RLS 확인)'
                     : 'Supabase 연결 확인 중...'
-                : 'Supabase 미연동 (Vercel에 VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY 설정 필요)'}
+                : 'Supabase 미연동 — 푸터의 연결 설정 또는 Vercel 환경 변수'}
             >
               <Database className="h-3 w-3" />
               Supabase:{' '}
               {!supabaseStatus.env ? (
                 <span className="flex items-center gap-1" style={{ color: '#94a3b8' }}>
                   미연동
+                  <button
+                    type="button"
+                    onClick={() => setSupabaseModalOpen(true)}
+                    className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 hover:bg-white/10 hover:text-white"
+                  >
+                    연결
+                  </button>
                 </span>
               ) : supabaseStatus.connection === true ? (
                 <span className="flex items-center gap-1" style={{ color: '#22c55e' }}>
