@@ -3,7 +3,7 @@ import {
   runDeleteComment,
   isDeleteCommentFailure,
   type DeleteCommentBody,
-} from './delete-comment-core'
+} from './delete-comment-core.js'
 
 function readDeleteCommentBody(req: VercelRequest): DeleteCommentBody | 'parse-error' {
   const raw = req.body
