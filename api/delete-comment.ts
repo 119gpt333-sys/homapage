@@ -21,6 +21,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     supabaseUrl,
   })
 
-  if (!result.ok) return res.status(result.status).json({ error: result.error })
-  return res.status(200).json({ success: true })
+  if (result.ok) return res.status(200).json({ success: true })
+  return res.status(result.status).json({ error: result.error })
 }
