@@ -36,16 +36,19 @@ export async function runDeleteComment(
 
   const supabase = createClient(secrets.supabaseUrl, secrets.serviceRoleKey)
 
-  const { data, error } = await supabase
+  // select()/maybeSingle() 없이 삭제: PostgREST DELETE+representation 조합에서
+  // 환경에 따라 500이 나는 경우를 피하고, 삭제 행 수는 Prefer: count=exact 로 확인합니다.
+  const { error, count } = await supabase
     .from('post_comments')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('id', commentId)
     .eq('post_id', postId)
-    .select('id')
-    .maybeSingle()
 
   if (error) return { ok: false, status: 500, error: error.message }
-  if (!data) return { ok: false, status: 404, error: '댓글을 찾을 수 없습니다.' }
+  // count 가 null 이면(헤더 미포함 등) 삭제는 성공했을 수 있으므로 404는 count===0 일 때만 냅니다.
+  if (count === 0) {
+    return { ok: false, status: 404, error: '댓글을 찾을 수 없습니다.' }
+  }
 
   return { ok: true }
 }
