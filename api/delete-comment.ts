@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { runDeleteComment, type DeleteCommentBody } from './delete-comment-core.js'
+import {
+  runDeleteComment,
+  isDeleteCommentFailure,
+  type DeleteCommentBody,
+} from './delete-comment-core.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -21,6 +25,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     supabaseUrl,
   })
 
-  if (result.ok) return res.status(200).json({ success: true })
-  return res.status(result.status).json({ error: result.error })
+  if (isDeleteCommentFailure(result)) {
+    return res.status(result.status).json({ error: result.error })
+  }
+  return res.status(200).json({ success: true })
 }

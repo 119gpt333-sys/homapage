@@ -16,6 +16,12 @@ export type DeleteCommentResult =
   | { ok: true }
   | { ok: false; status: number; error: string }
 
+export function isDeleteCommentFailure(
+  r: DeleteCommentResult,
+): r is { ok: false; status: number; error: string } {
+  return r.ok === false
+}
+
 export async function runDeleteComment(
   body: DeleteCommentBody,
   secrets: DeleteCommentSecrets,
