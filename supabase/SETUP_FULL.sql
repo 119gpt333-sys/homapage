@@ -6,7 +6,8 @@
 
 -- 1. 스키마 (테이블, enum, RLS)
 create type public.knowledge_category as enum (
-  'AI_UTIL', 'FIELD', 'EQUIPMENT', 'PREVENTION', 'LECTURE', 'NOTICE', 'BOARD', 'RESEARCH'
+  'AI_UTIL', 'FIELD', 'EQUIPMENT', 'PREVENTION', 'LECTURE', 'NOTICE', 'BOARD', 'RESEARCH',
+  'BOOK', 'YOUTUBE'
 );
 
 create table if not exists public.knowledge_posts (

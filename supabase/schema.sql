@@ -8,7 +8,9 @@ create type public.knowledge_category as enum (
   'LECTURE',     -- 강의신청
   'NOTICE',      -- 공지사항
   'BOARD',       -- 자유게시판
-  'RESEARCH'     -- 연구자료
+  'RESEARCH',    -- 연구자료
+  'BOOK',        -- 추천도서
+  'YOUTUBE'      -- 필독 유튜브
 );
 
 create table if not exists public.knowledge_posts (

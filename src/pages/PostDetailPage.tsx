@@ -68,12 +68,12 @@ export function PostDetailPage() {
       <div className="mx-auto max-w-3xl rounded-2xl p-10 text-center"
         style={{ background: 'var(--color-card)', border: '1px dashed var(--color-border-hover)' }}>
         <Flame className="mx-auto mb-3 h-10 w-10" style={{ color: 'var(--color-text-muted)' }} />
-        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="text-base md:text-lg" style={{ color: 'var(--color-text-secondary)' }}>
           지식 카드를 찾을 수 없습니다.
         </p>
-        <Link to="/" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold"
+        <Link to="/" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold md:text-base"
           style={{ color: 'var(--color-accent-light)' }}>
-          <ArrowLeft className="h-3 w-3" />
+          <ArrowLeft className="h-4 w-4" />
           홈으로 돌아가기
         </Link>
       </div>
@@ -97,35 +97,35 @@ export function PostDetailPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors"
+        <Link to="/" className="inline-flex items-center gap-2 text-sm font-medium transition-colors md:text-base"
           style={{ color: 'var(--color-text-muted)' }}>
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ArrowLeft className="h-4 w-4 shrink-0" />
           목록으로 돌아가기
         </Link>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <Link
             to={`/post/${post.id}/edit`}
-            className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors"
+            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors md:text-sm"
             style={{
               color: 'var(--color-accent-light)',
-              border: '1px solid rgba(220,38,38,0.3)',
-              background: 'rgba(220,38,38,0.08)',
+              border: '1px solid rgba(220,38,38,0.35)',
+              background: 'rgba(220,38,38,0.1)',
             }}
           >
-            <Pencil className="h-2.5 w-2.5" />
+            <Pencil className="h-3.5 w-3.5" />
             수정
           </Link>
           <button
             type="button"
             onClick={() => setDeleteModalOpen(true)}
-            className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors"
+            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors md:text-sm"
             style={{
               color: '#f87171',
-              border: '1px solid rgba(239,68,68,0.3)',
-              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.35)',
+              background: 'rgba(239,68,68,0.1)',
             }}
           >
-            <Trash2 className="h-2.5 w-2.5" />
+            <Trash2 className="h-3.5 w-3.5" />
             삭제
           </button>
         </div>
@@ -140,12 +140,12 @@ export function PostDetailPage() {
       />
 
       <header className="space-y-3">
-        <span className="inline-block rounded-md px-2.5 py-1 text-[11px] font-semibold"
+        <span className="inline-block rounded-lg px-3 py-1.5 text-sm font-semibold md:text-base"
           style={{ background: 'rgba(220,38,38,0.12)', color: '#f87171' }}>
           {categoryLabels[post.category] ?? post.category}
         </span>
 
-        <h1 className="rounded-xl border-2 px-5 py-4 text-3xl font-bold leading-tight md:text-4xl"
+        <h1 className="rounded-xl border-2 px-5 py-5 text-4xl font-bold leading-[1.15] md:px-6 md:py-6 md:text-5xl lg:text-6xl"
           style={{
             fontFamily: 'var(--font-heading)',
             color: 'var(--color-text-primary)',
@@ -155,28 +155,37 @@ export function PostDetailPage() {
           {post.title}
         </h1>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs"
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm md:text-base"
           style={{ color: 'var(--color-text-muted)' }}>
-          <span className="flex items-center gap-1"><User className="h-3 w-3" />{post.author_display_name || '익명 기여'}</span>
-          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(post.created_at).toLocaleString('ko-KR')}</span>
-          <span className="flex items-center gap-1"><Eye className="h-3 w-3" />조회 {post.view_count ?? 0}</span>
+          <span className="flex items-center gap-1.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+            <User className="h-4 w-4 shrink-0 opacity-80" />
+            {post.author_display_name || '익명 기여'}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Calendar className="h-4 w-4 shrink-0 opacity-80" />
+            {new Date(post.created_at).toLocaleString('ko-KR')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Eye className="h-4 w-4 shrink-0 opacity-80" />
+            조회 {post.view_count ?? 0}
+          </span>
         </div>
-        <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="text-sm leading-relaxed md:text-base" style={{ color: 'var(--color-text-muted)' }}>
           이 글 하단에 <strong style={{ color: 'var(--color-text-secondary)' }}>댓글</strong>을 남길 수 있습니다. 요약 바로 아래에 댓글창이 있습니다.
         </p>
       </header>
 
       {/* Summary box with red border */}
-      <div className="rounded-2xl p-5"
+      <div className="rounded-2xl p-5 md:p-6"
         style={{
           background: 'rgba(220,38,38,0.06)',
           border: '1px solid rgba(220,38,38,0.25)',
         }}>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wider"
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wider md:text-base"
           style={{ color: '#f87171', fontFamily: 'var(--font-heading)' }}>
           핵심 요약
         </h2>
-        <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>
+        <p className="text-base leading-relaxed md:text-lg" style={{ color: 'var(--color-text-primary)' }}>
           <LinkifyText>{post.summary}</LinkifyText>
         </p>
       </div>
@@ -203,9 +212,9 @@ export function PostDetailPage() {
       })()}
 
       {/* Markdown body */}
-      <article className="rounded-2xl p-6 md:p-8"
+      <article className="rounded-2xl p-6 md:p-9"
         style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)' }}>
-        <div className="prose-custom">
+        <div className="prose-custom max-w-none">
           <ReactMarkdown
             components={{
               a: ({ href, children, ...props }) => (
@@ -230,8 +239,8 @@ export function PostDetailPage() {
         </div>
       </article>
 
-      <p className="text-center text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-        <a href="#comments" className="font-medium underline underline-offset-2" style={{ color: 'var(--color-accent-light)' }}>
+      <p className="text-center text-sm md:text-base" style={{ color: 'var(--color-text-muted)' }}>
+        <a href="#comments" className="font-semibold underline underline-offset-2" style={{ color: 'var(--color-accent-light)' }}>
           ↑ 댓글은 요약 아래에 있습니다
         </a>
       </p>

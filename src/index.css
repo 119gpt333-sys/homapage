@@ -1,22 +1,34 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @theme {
-  --color-background: #050505;
-  --color-surface: #0a0a0a;
-  --color-card: #111111;
-  --color-card-hover: #181818;
-  --color-accent: #dc2626;
-  --color-accent-light: #ef4444;
-  --color-accent-glow: rgba(220, 38, 38, 0.15);
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-border-hover: rgba(255, 255, 255, 0.15);
-  --color-text-primary: rgba(255, 255, 255, 0.95);
-  --color-text-secondary: rgba(255, 255, 255, 0.6);
-  --color-text-muted: rgba(255, 255, 255, 0.35);
+  /* 새 컬러 시스템 */
+  --color-bg: #0c0c0e;
+  --color-surface: #141416;
+  --color-surface-2: #1a1a1e;
+  --color-surface-3: #222226;
+  --color-border: #2a2a30;
+  --color-border-subtle: #1e1e24;
 
-  --font-heading: 'Space Grotesk', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
+  --color-text-primary: #e8e8ec;
+  --color-text-muted: #8a8a96;
+  --color-text-faint: #52525e;
+
+  --color-accent: #dc2626;
+  --color-accent-hover: #ef4444;
+  --color-accent-muted: rgba(220, 38, 38, 0.15);
+
+  /* 기존 컴포넌트·유틸 호환 */
+  --color-background: var(--color-bg);
+  --color-card: var(--color-surface-2);
+  --color-card-hover: var(--color-surface-3);
+  --color-border-hover: #383842;
+  --color-text-secondary: #b4b4be;
+  --color-accent-light: var(--color-accent-hover);
+  --color-accent-glow: var(--color-accent-muted);
+
+  --font-sans: 'General Sans', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'General Sans', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: var(--font-sans);
 
   --radius-lg: 16px;
   --radius-xl: 20px;
@@ -36,8 +48,34 @@
   color-scheme: dark;
 }
 
+html.light {
+  color-scheme: light;
+  --color-bg: #f4f4f6;
+  --color-surface: #ffffff;
+  --color-surface-2: #ececf0;
+  --color-surface-3: #e2e2e8;
+  --color-border: #d8d8e0;
+  --color-border-subtle: #ebebf0;
+  --color-text-primary: #18181c;
+  --color-text-muted: #5f5f6e;
+  --color-text-faint: #8b8b9a;
+  --color-border-hover: #c4c4d0;
+  --color-text-secondary: #3f3f4d;
+  --shadow-card: 0 2px 20px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 40px rgba(220, 38, 38, 0.06);
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
 html {
   scroll-behavior: smooth;
+  font-family: var(--font-body);
 }
 
 body {
@@ -52,6 +90,43 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+/* PageShell 본문 — 상단 플로팅 공지 예약 높이 (--top-banner-reserve) */
+main.page-main-with-top-banner {
+  padding-top: calc(8rem + var(--top-banner-reserve, 0px));
+  transition: padding-top 0.4s ease-out;
+}
+
+@media (min-width: 768px) {
+  main.page-main-with-top-banner {
+    padding-top: calc(8.5rem + var(--top-banner-reserve, 0px));
+  }
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes post-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.post-card-enter {
+  animation: post-card-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0;
 }
 
 ::-webkit-scrollbar {
@@ -72,15 +147,74 @@ body {
 }
 
 .glass {
-  background: rgba(17, 17, 17, 0.7);
+  background: color-mix(in srgb, var(--color-surface) 75%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--color-border);
 }
 
 .glass-hover:hover {
-  background: rgba(24, 24, 24, 0.8);
+  background: color-mix(in srgb, var(--color-surface-2) 82%, transparent);
   border-color: var(--color-border-hover);
+}
+
+.notice-board-row:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+html.light .notice-board-row:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+html.light .notice-board-row:not(:last-child) {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+html.light .post-card-footer {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+html.light .footer-site {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+/* 콘텐츠 대시보드 탭 카운트 배지 (라이트 모드 대비) */
+html.light .tab-count:not([class*='ring-white']) {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+/* 댓글 작성자(닉네임) 라벨·입력·목록 표시 — 파란 강조 */
+.post-comment-author-label {
+  color: #38bdf9;
+}
+
+html.light .post-comment-author-label {
+  color: #2563eb;
+}
+
+.post-comment-author-input {
+  color: #38bdf9 !important;
+  font-weight: 600;
+}
+
+.post-comment-author-input::placeholder {
+  color: color-mix(in srgb, #38bdf9 58%, transparent);
+}
+
+html.light .post-comment-author-input {
+  color: #2563eb !important;
+}
+
+html.light .post-comment-author-input::placeholder {
+  color: color-mix(in srgb, #2563eb 52%, transparent);
+}
+
+.post-comment-author-display {
+  color: #38bdf9;
+}
+
+html.light .post-comment-author-display {
+  color: #2563eb;
 }
 
 .glow-red {
@@ -175,4 +309,86 @@ body {
 
 .dashboard-btn.ripple::after {
   animation: ripple-expand 0.5s ease-out forwards;
+}
+
+/* 글 상세 마크다운 본문 — 가독성·배율 */
+.prose-custom {
+  font-size: 1.1rem;
+  line-height: 1.72;
+  color: var(--color-text-secondary);
+}
+
+.prose-custom :is(p, li) {
+  margin-top: 0.65em;
+  margin-bottom: 0.65em;
+}
+
+.prose-custom :is(ul, ol) {
+  padding-left: 1.35em;
+}
+
+.prose-custom :is(h1, h2, h3, h4) {
+  color: var(--color-text-primary);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 1.35em;
+  margin-bottom: 0.55em;
+}
+
+.prose-custom h1 {
+  font-size: 1.7rem;
+}
+
+.prose-custom h2 {
+  font-size: 1.45rem;
+}
+
+.prose-custom h3 {
+  font-size: 1.22rem;
+}
+
+.prose-custom :is(strong) {
+  color: var(--color-text-primary);
+}
+
+.prose-custom code {
+  font-size: 0.92em;
+  padding: 0.15em 0.4em;
+  border-radius: 0.35rem;
+  background: var(--color-surface-3);
+}
+
+.prose-custom pre {
+  font-size: 0.95em;
+  line-height: 1.6;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  background: var(--color-surface-3);
+  border: 1px solid var(--color-border);
+}
+
+.prose-custom pre code {
+  padding: 0;
+  background: transparent;
+}
+
+@media (min-width: 768px) {
+  .prose-custom {
+    font-size: 1.1875rem;
+    line-height: 1.76;
+  }
+
+  .prose-custom h1 {
+    font-size: 2rem;
+  }
+
+  .prose-custom h2 {
+    font-size: 1.625rem;
+  }
+
+  .prose-custom h3 {
+    font-size: 1.35rem;
+  }
 }

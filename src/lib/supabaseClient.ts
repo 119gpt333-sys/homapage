@@ -272,10 +272,22 @@ export async function uploadImage(file: File): Promise<string> {
 
 // ─── Posts API ───
 
+/** PostgREST `ilike` 패턴용 — 와일드카드·OR 구분자 왜곡 방지 */
+function sanitizeSearchQuery(raw: string): string {
+  return raw
+    .trim()
+    .slice(0, 120)
+    .replace(/[%_,"]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export async function fetchPostsByCategory(
   category?: string,
-  options?: { excludeCategories?: string[] }
+  options?: { excludeCategories?: string[]; search?: string }
 ): Promise<KnowledgePost[]> {
+  const searchToken = options?.search ? sanitizeSearchQuery(options.search) : ''
+
   if (useDevStorageFallback()) {
     const posts = getLocalPostsOrSamples()
     let filtered = category && category !== 'ALL'
@@ -283,6 +295,15 @@ export async function fetchPostsByCategory(
       : posts
     if (options?.excludeCategories?.length) {
       filtered = filtered.filter((p) => !options.excludeCategories!.includes(p.category))
+    }
+    if (searchToken) {
+      const s = searchToken.toLowerCase()
+      filtered = filtered.filter(
+        (p) =>
+          p.title.toLowerCase().includes(s) ||
+          p.summary.toLowerCase().includes(s) ||
+          p.content_markdown.toLowerCase().includes(s),
+      )
     }
     const sorted = filtered.sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
@@ -308,12 +329,72 @@ export async function fetchPostsByCategory(
     }
   }
 
+  if (searchToken) {
+    const esc = searchToken.replace(/"/g, '""')
+    const p = `"%${esc}%"`
+    query = query.or(`title.ilike.${p},summary.ilike.${p},content_markdown.ilike.${p}`)
+  }
+
   const { data, error } = await query
   if (error) {
     console.error('[Supabase] fetchPostsByCategory error', error)
     return []
   }
   return (data ?? []) as KnowledgePost[]
+}
+
+/** 대시보드 탭 기준 콘텐츠 카테고리 수 (전체 제외) */
+const DASHBOARD_CATEGORY_COUNT = 6
+
+export type KnowledgeStats = {
+  totalPosts: number
+  categoryCount: number
+  totalViews: number
+  activeContributors: number
+}
+
+function emptyKnowledgeStats(): KnowledgeStats {
+  return {
+    totalPosts: 0,
+    categoryCount: DASHBOARD_CATEGORY_COUNT,
+    totalViews: 0,
+    activeContributors: 0,
+  }
+}
+
+function aggregateKnowledgeStats(
+  rows: { view_count: number | null | undefined; author_display_name: string | null | undefined }[],
+): KnowledgeStats {
+  const totalViews = rows.reduce((s, r) => s + (r.view_count ?? 0), 0)
+  const authors = new Set(
+    rows
+      .map((r) => r.author_display_name?.trim())
+      .filter((n): n is string => Boolean(n)),
+  )
+  return {
+    totalPosts: rows.length,
+    categoryCount: DASHBOARD_CATEGORY_COUNT,
+    totalViews,
+    activeContributors: authors.size,
+  }
+}
+
+/** 전체 게시글 수·조회수 합·기여자 수 (통계 배너용) */
+export async function fetchKnowledgeStats(): Promise<KnowledgeStats> {
+  if (useDevStorageFallback()) {
+    const posts = mergeLocalViewCounts(getLocalPostsOrSamples())
+    return aggregateKnowledgeStats(posts)
+  }
+
+  const sb = getActiveClient()
+  if (!sb) return emptyKnowledgeStats()
+
+  const { data, error } = await sb.from('knowledge_posts').select('view_count, author_display_name')
+  if (error) {
+    console.error('[Supabase] fetchKnowledgeStats', error)
+    return emptyKnowledgeStats()
+  }
+  return aggregateKnowledgeStats(data ?? [])
 }
 
 export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
@@ -467,6 +548,36 @@ export async function createComment(
     throw new Error(error.message || '댓글 등록에 실패했습니다.')
   }
   return data as PostComment
+}
+
+export async function deleteComment(
+  postId: string,
+  commentId: string,
+  password: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (useDevStorageFallback()) {
+    const map = getLocalCommentsMap()
+    const list = map[postId] ?? []
+    const filtered = list.filter((c) => c.id !== commentId)
+    if (filtered.length === list.length) return { ok: false, error: '해당 댓글을 찾을 수 없습니다.' }
+    map[postId] = filtered
+    saveLocalCommentsMap(map)
+    return { ok: true }
+  }
+
+  try {
+    const res = await fetch('/api/delete-comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commentId, postId, password }),
+    })
+    const data = (await res.json()) as { error?: string }
+    if (!res.ok) return { ok: false, error: data?.error ?? '삭제에 실패했습니다.' }
+    return { ok: true }
+  } catch (err) {
+    console.error('[Supabase] deleteComment error', err)
+    return { ok: false, error: '네트워크 오류가 발생했습니다.' }
+  }
 }
 
 interface CreatePostPayload {
