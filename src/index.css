@@ -270,6 +270,14 @@ html.light .post-comment-author-display {
   animation: dashboard-fade-in 0.4s ease-out;
 }
 
+.notice-board {
+  animation: dashboard-fade-in 0.45s ease-out;
+}
+
+.notice-card-enter {
+  animation: dashboard-fade-in 0.42s ease-out backwards;
+}
+
 @keyframes pill-in {
   from {
     opacity: 0;
@@ -374,6 +382,14 @@ html.light .post-comment-author-display {
   background: transparent;
 }
 
+.prose-custom blockquote {
+  margin: 0.65em 0;
+  padding: 0.5rem 0 0.5rem 0.85rem;
+  border-left: 3px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  color: var(--color-text-muted);
+  font-size: 0.95em;
+}
+
 @media (min-width: 768px) {
   .prose-custom {
     font-size: 1.1875rem;
@@ -391,4 +407,69 @@ html.light .post-comment-author-display {
   .prose-custom h3 {
     font-size: 1.35rem;
   }
+}
+
+/* TipTap 본문 편집기 (WYSIWYG) */
+.ProseMirror.rich-body-editor {
+  min-height: 300px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+  font-family: var(--font-body);
+}
+
+.ProseMirror.rich-body-editor:focus {
+  border-color: var(--color-border-hover);
+}
+
+.ProseMirror.rich-body-editor p {
+  margin: 0 0 0.5rem;
+}
+
+.ProseMirror.rich-body-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.ProseMirror.rich-body-editor h1 {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.ProseMirror.rich-body-editor h2 {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0.65rem 0 0.45rem;
+}
+
+.ProseMirror.rich-body-editor h3 {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0.55rem 0 0.4rem;
+}
+
+.ProseMirror.rich-body-editor img.rich-body-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror.rich-body-editor a {
+  color: var(--color-accent-light);
+  text-decoration: underline;
 }

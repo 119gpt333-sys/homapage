@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
+import { MarkdownContent } from '../components/MarkdownContent'
 import { ArrowLeft, Eye, User, Calendar, Flame, Pencil, Trash2 } from 'lucide-react'
 import { fetchPostById, incrementPostViewCount } from '../lib/supabaseClient'
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal'
@@ -214,29 +214,11 @@ export function PostDetailPage() {
       {/* Markdown body */}
       <article className="rounded-2xl p-6 md:p-9"
         style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)' }}>
-        <div className="prose-custom max-w-none">
-          <ReactMarkdown
-            components={{
-              a: ({ href, children, ...props }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer" {...props}
-                  style={{ color: 'var(--color-accent-light)', textDecoration: 'underline' }}>
-                  {children}
-                </a>
-              ),
-              img: ({ src, alt, ...props }) => {
-                if (!src?.trim()) return null
-                const inImageUrls = post.image_urls?.includes(src)
-                if (inImageUrls) return null
-                return (
-                  <img src={src} alt={alt ?? ''} {...props}
-                    className="max-w-full h-auto object-contain" style={{ display: 'block' }} />
-                )
-              },
-            }}
-          >
-            {post.content_markdown}
-          </ReactMarkdown>
-        </div>
+        <MarkdownContent
+          markdown={post.content_markdown}
+          omitImageSrcs={post.image_urls}
+          className="prose-custom max-w-none"
+        />
       </article>
 
       <p className="text-center text-sm md:text-base" style={{ color: 'var(--color-text-muted)' }}>

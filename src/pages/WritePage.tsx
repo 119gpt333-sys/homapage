@@ -4,6 +4,7 @@ import { ArrowLeft, Send, ImagePlus, X, Loader2 } from 'lucide-react'
 import type { CategoryCode } from '../types/knowledge'
 import { createPost, uploadImage } from '../lib/supabaseClient'
 import { compressImage } from '../lib/imageCompress'
+import { RichBodyEditor, type RichBodyEditorRef } from '../components/RichBodyEditor'
 
 const categoryOptions: { code: CategoryCode; label: string }[] = [
   { code: 'AI_UTIL', label: 'AI 활용' },
@@ -39,10 +40,12 @@ interface ImagePreview {
 export function WritePage() {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
+  const bodyEditorRef = useRef<RichBodyEditorRef>(null)
+  const inlineImageInputRef = useRef<HTMLInputElement>(null)
+  const [inlineImageUploading, setInlineImageUploading] = useState(false)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState<CategoryCode>('LECTURE')
   const [summary, setSummary] = useState('')
-  const [content, setContent] = useState('')
   const [author, setAuthor] = useState('')
   const [images, setImages] = useState<ImagePreview[]>([])
   const [compressing, setCompressing] = useState(false)
@@ -92,10 +95,29 @@ export function WritePage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
   }
 
+  const handleInlineImagePick = async (files: FileList | null) => {
+    if (!files?.length) return
+    const file = files[0]
+    if (!file.type.startsWith('image/')) return
+    setError(null)
+    setInlineImageUploading(true)
+    try {
+      const compressed = await compressImage(file)
+      const url = await uploadImage(compressed)
+      bodyEditorRef.current?.insertImage(url)
+    } catch {
+      setError('본문에 넣을 사진 업로드에 실패했습니다.')
+    } finally {
+      setInlineImageUploading(false)
+      if (inlineImageInputRef.current) inlineImageInputRef.current.value = ''
+    }
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!title.trim() || !summary.trim() || !content.trim()) {
+    const bodyMd = bodyEditorRef.current?.getMarkdown().trim() ?? ''
+    if (!title.trim() || !summary.trim() || !bodyMd) {
       setError('제목, 요약, 본문은 필수입니다.')
       return
     }
@@ -108,7 +130,6 @@ export function WritePage() {
           imageUrls.push(url)
         } catch (uploadErr) {
           console.warn('[WritePage] 이미지 업로드 건너뜀:', uploadErr)
-          // 이미지 업로드 실패 시 해당 이미지 제외하고 진행 (텍스트만 등록)
         }
       }
 
@@ -116,7 +137,7 @@ export function WritePage() {
         imageUrls.length > 0
           ? imageUrls.map((url) => `![첨부사진](${url})`).join('\n\n') + '\n\n'
           : ''
-      const contentMarkdown = imageMarkdown + content
+      const contentMarkdown = imageMarkdown + bodyMd
 
       const created = await createPost({
         title: title.trim(),
@@ -184,7 +205,6 @@ export function WritePage() {
             rows={3} style={{ ...inputStyle, resize: 'vertical' as const }} />
         </label>
 
-        {/* Image Upload */}
         <div className="flex flex-col gap-2">
           <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
             사진 첨부 (자동 1/10 압축)
@@ -229,12 +249,26 @@ export function WritePage() {
           )}
         </div>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>본문 (Markdown 지원) *</span>
-          <textarea value={content} onChange={(e) => setContent(e.target.value)}
-            placeholder={`![이미지 설명](이미지 URL)\n\n[클릭 시 이동할 링크 이름](URL)\n\n(본문 내용)`}
-            rows={12} style={{ ...inputStyle, resize: 'vertical' as const, fontFamily: 'monospace, var(--font-body)' }} />
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>본문 *</span>
+          <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+            입력하는 그대로 화면에 반영됩니다. 저장 시 자동으로 마크다운으로 변환됩니다.
+          </p>
+          <input
+            ref={inlineImageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleInlineImagePick(e.target.files)}
+          />
+          <RichBodyEditor
+            ref={bodyEditorRef}
+            markdown=""
+            placeholder="본문을 입력하세요. 제목·굵게·줄 바꿈·사진은 위 도구로 넣을 수 있습니다."
+            inlineImageUploading={inlineImageUploading}
+            onPickInlineImage={() => inlineImageInputRef.current?.click()}
+          />
+        </div>
 
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>작성자 표기 (선택)</span>
@@ -246,7 +280,7 @@ export function WritePage() {
           style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
           <p className="mb-1 font-semibold" style={{ color: 'var(--color-text-secondary)' }}>작성 가이드</p>
           <ul className="space-y-0.5">
-            <li>• 사진은 자동 1/10 압축 후 본문 최상단에 배치됩니다</li>
+            <li>• 상단 사진은 글 맨 앞 갤러리용, 「본문에 사진」은 편집 화면에 바로 끼워 넣습니다</li>
             <li>• [링크이름](URL) 형식의 첫 링크는 목록 클릭 시 바로 이동됩니다</li>
             <li>• 개인정보 제거 후 서술, 공식 지침과 다른 내용은 반드시 명시</li>
           </ul>

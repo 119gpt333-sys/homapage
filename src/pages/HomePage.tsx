@@ -14,6 +14,8 @@ import {
   LayoutGrid,
   Pencil,
   Trash2,
+  Calendar,
+  Megaphone,
 } from 'lucide-react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import type { KnowledgePost, CategoryCode } from '../types/knowledge'
@@ -56,6 +58,8 @@ const categories: {
   { code: 'BOOK', label: '추천도서', description: '꼭 읽어야 할 도서', icon: <BookOpen className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#f97316' },
   { code: 'YOUTUBE', label: '필독 유튜브', description: '중요 교육·훈련 영상', icon: <PlayCircle className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#ef4444' },
 ]
+
+const noticeCategory = { color: '#fbbf24' as const }
 
 function getCategoryCardUi(category: CategoryCode): { badge: string; thumbBg: string; icon: ReactNode } {
   const iconCls = 'h-14 w-14 shrink-0 opacity-40'
@@ -277,68 +281,207 @@ export function HomePage() {
 
       {/* ── 공지사항 ── */}
       {noticePosts.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Bell className="h-6 w-6 shrink-0 text-red-500" strokeWidth={2} aria-hidden />
-            <h2
-              className="text-xl font-bold tracking-tight md:text-2xl"
-              style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}
-            >
-              공지사항
-            </h2>
+        <section
+          className="notice-board relative overflow-hidden rounded-2xl p-5 sm:p-6"
+          style={{
+            background: 'linear-gradient(165deg, rgba(251,191,36,0.06) 0%, var(--color-card) 42%, var(--color-card) 100%)',
+            border: '1px solid rgba(251,191,36,0.12)',
+            boxShadow: '0 2px 24px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.04)',
+          }}
+        >
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-px"
+            style={{
+              background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.55), rgba(252,211,77,0.35), transparent)',
+            }}
+          />
+          <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                style={{
+                  background: 'linear-gradient(145deg, rgba(251,191,36,0.22) 0%, rgba(251,191,36,0.06) 100%)',
+                  border: '1px solid rgba(251,191,36,0.22)',
+                  boxShadow: '0 4px 20px rgba(251,191,36,0.08)',
+                }}
+              >
+                <Megaphone className="h-5 w-5" style={{ color: noticeCategory.color }} strokeWidth={2} />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2
+                    className="text-lg font-bold tracking-tight sm:text-xl"
+                    style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}
+                  >
+                    공지사항
+                  </h2>
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                    style={{
+                      background: 'rgba(251,191,36,0.12)',
+                      color: '#fcd34d',
+                      border: '1px solid rgba(251,191,36,0.2)',
+                    }}
+                  >
+                    필독
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs leading-relaxed sm:text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
+                  서울소방GPT 주요 안내와 업데이트를 확인하세요.
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-            {noticePosts.map((post) => {
+          <ul className="relative flex list-none flex-col gap-2.5 p-0 sm:gap-3">
+            {noticePosts.map((post, idx) => {
               const handleClick = () => navigate(`/post/${post.id}`)
+              const cover = post.thumbnail_url ?? post.image_urls?.[0]
               const badge = getNoticeBadge(post)
+              const dateLabel = new Date(post.created_at).toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })
               return (
-                <div
-                  key={post.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={handleClick}
-                  onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-                  className="notice-board-row flex cursor-pointer items-center justify-between gap-4 border-b border-white/5 px-5 py-4 transition-colors last:border-b-0"
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    {badge === 'NEW' && (
-                      <span className="shrink-0 rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-bold text-red-500">
-                        NEW
-                      </span>
-                    )}
-                    {badge === 'HOT' && (
-                      <span className="shrink-0 rounded-full bg-orange-400/15 px-2.5 py-0.5 text-xs font-bold text-orange-400">
-                        HOT
-                      </span>
-                    )}
-                    <span className="truncate text-lg font-semibold text-[var(--color-text-primary)] md:text-xl">{post.title}</span>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setDeletePostId(post.id)
+                <li key={post.id} className="p-0">
+                  <article
+                    role="button"
+                    tabIndex={0}
+                    onClick={handleClick}
+                    onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+                    className="notice-card-enter group relative flex cursor-pointer overflow-hidden rounded-xl border border-white/[0.06] transition-all duration-300 hover:border-amber-400/18 hover:bg-white/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a] sm:rounded-2xl"
+                    style={{
+                      animationDelay: `${idx * 55}ms`,
+                      background: 'rgba(10,10,10,0.45)',
+                      boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset',
+                    }}
+                  >
+                    <div
+                      className="w-1 shrink-0 sm:w-1.5"
+                      style={{
+                        background: 'linear-gradient(180deg, #fcd34d 0%, #d97706 50%, rgba(217,119,6,0.35) 100%)',
                       }}
-                      className="rounded p-1.5 text-red-500 opacity-70 transition-opacity hover:opacity-100"
-                      title="삭제"
+                      aria-hidden
+                    />
+                    <div
+                      className="relative h-[92px] w-[100px] shrink-0 overflow-hidden sm:h-[104px] sm:w-[124px]"
+                      style={{ background: 'rgba(0,0,0,0.35)' }}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                    <div className="flex items-center gap-4 text-sm text-[var(--color-text-muted)]">
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-4 w-4 shrink-0" aria-hidden />
-                        조회 {post.view_count ?? 0}
-                      </span>
-                      <span className="tabular-nums">{new Date(post.created_at).toLocaleDateString('ko-KR')}</span>
+                      {cover ? (
+                        <img src={cover} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      ) : (
+                        <div
+                          className="flex h-full w-full items-center justify-center"
+                          style={{
+                            background: 'linear-gradient(160deg, rgba(251,191,36,0.12) 0%, rgba(251,191,36,0.03) 100%)',
+                          }}
+                        >
+                          <Bell className="h-9 w-9 opacity-35 sm:h-10 sm:w-10" style={{ color: noticeCategory.color }} />
+                        </div>
+                      )}
+                      <div
+                        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                        style={{
+                          background: 'linear-gradient(90deg, transparent 40%, rgba(251,191,36,0.06) 100%)',
+                        }}
+                      />
                     </div>
-                  </div>
-                </div>
+
+                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 py-3 pl-3 pr-[4.75rem] sm:pl-4 md:pr-48">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className="rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide"
+                          style={{
+                            background: 'rgba(251,191,36,0.14)',
+                            color: '#fde68a',
+                            border: '1px solid rgba(251,191,36,0.22)',
+                          }}
+                        >
+                          공지
+                        </span>
+                        {badge === 'NEW' && (
+                          <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-500">
+                            NEW
+                          </span>
+                        )}
+                        {badge === 'HOT' && (
+                          <span className="rounded-full bg-orange-400/15 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+                            HOT
+                          </span>
+                        )}
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px]"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                          {dateLabel}
+                        </span>
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px]"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          <Eye className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                          조회 {post.view_count ?? 0}
+                        </span>
+                      </div>
+                      <h3
+                        className="line-clamp-2 text-left text-[15px] font-semibold leading-snug sm:text-base"
+                        style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}
+                      >
+                        {post.title}
+                      </h3>
+                      {post.summary?.trim() ? (
+                        <p className="line-clamp-1 text-left text-xs leading-relaxed sm:text-[13px]" style={{ color: 'var(--color-text-secondary)' }}>
+                          <LinkifyText>{post.summary}</LinkifyText>
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-2">
+                      <span
+                        className="mr-0.5 hidden items-center gap-0.5 text-[11px] font-medium transition-colors group-hover:text-amber-200/90 md:inline-flex"
+                        style={{ color: 'rgba(253,230,138,0.75)' }}
+                      >
+                        보기
+                        <ArrowRight className="h-3 w-3" />
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Link
+                          to={`/post/${post.id}/edit`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg backdrop-blur-sm transition-all hover:opacity-95 md:h-auto md:w-auto md:gap-1 md:px-2.5 md:py-1"
+                          style={{
+                            color: '#fff',
+                            background: 'rgba(220,38,38,0.85)',
+                            border: '1px solid rgba(248,113,113,0.35)',
+                          }}
+                          title="수정"
+                        >
+                          <Pencil className="h-3.5 w-3.5 md:hidden" />
+                          <span className="hidden text-[10px] font-semibold md:inline">수정</span>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setDeletePostId(post.id) }}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg backdrop-blur-sm transition-all hover:opacity-95 md:h-auto md:w-auto md:gap-1 md:px-2.5 md:py-1"
+                          style={{
+                            color: '#fecaca',
+                            background: 'rgba(127,29,29,0.55)',
+                            border: '1px solid rgba(248,113,113,0.25)',
+                          }}
+                          title="삭제"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 md:hidden" />
+                          <span className="hidden text-[10px] font-semibold md:inline">삭제</span>
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                </li>
               )
             })}
-          </div>
+          </ul>
         </section>
       )}
 

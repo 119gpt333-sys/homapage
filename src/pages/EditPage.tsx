@@ -4,6 +4,7 @@ import { ArrowLeft, Send, ImagePlus, X, Loader2, Pencil } from 'lucide-react'
 import type { CategoryCode } from '../types/knowledge'
 import { fetchPostById, updatePost, uploadImage } from '../lib/supabaseClient'
 import { compressImage } from '../lib/imageCompress'
+import { RichBodyEditor, type RichBodyEditorRef } from '../components/RichBodyEditor'
 
 const categoryOptions: { code: CategoryCode; label: string }[] = [
   { code: 'AI_UTIL', label: 'AI 활용' },
@@ -44,6 +45,10 @@ export function EditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
+  const bodyEditorRef = useRef<RichBodyEditorRef>(null)
+  const inlineImageInputRef = useRef<HTMLInputElement>(null)
+  const [inlineImageUploading, setInlineImageUploading] = useState(false)
+  const [bodyEditorKey, setBodyEditorKey] = useState(0)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState<CategoryCode>('LECTURE')
   const [summary, setSummary] = useState('')
@@ -85,6 +90,7 @@ export function EditPage() {
         isExisting: true,
       }))
       setImages(existingImages)
+      setBodyEditorKey((k) => k + 1)
       setFetching(false)
     })()
     return () => { cancelled = true }
@@ -134,11 +140,30 @@ export function EditPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
   }
 
+  const handleInlineImagePick = async (files: FileList | null) => {
+    if (!files?.length) return
+    const file = files[0]
+    if (!file.type.startsWith('image/')) return
+    setError(null)
+    setInlineImageUploading(true)
+    try {
+      const compressed = await compressImage(file)
+      const url = await uploadImage(compressed)
+      bodyEditorRef.current?.insertImage(url)
+    } catch {
+      setError('본문에 넣을 사진 업로드에 실패했습니다.')
+    } finally {
+      setInlineImageUploading(false)
+      if (inlineImageInputRef.current) inlineImageInputRef.current.value = ''
+    }
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!id) return
     setError(null)
-    if (!title.trim() || !summary.trim() || !content.trim()) {
+    const bodyMd = bodyEditorRef.current?.getMarkdown().trim() ?? ''
+    if (!title.trim() || !summary.trim() || !bodyMd) {
       setError('제목, 요약, 본문은 필수입니다.')
       return
     }
@@ -158,7 +183,7 @@ export function EditPage() {
         imageUrls.length > 0
           ? imageUrls.map((url) => `![첨부사진](${url})`).join('\n\n') + '\n\n'
           : ''
-      const contentMarkdown = imageMarkdown + content
+      const contentMarkdown = imageMarkdown + bodyMd
 
       const updated = await updatePost(id, {
         title: title.trim(),
@@ -304,12 +329,27 @@ export function EditPage() {
           )}
         </div>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>본문 (Markdown 지원) *</span>
-          <textarea value={content} onChange={(e) => setContent(e.target.value)}
-            placeholder={`![이미지 설명](이미지 URL)\n\n[클릭 시 이동할 링크 이름](URL)\n\n(본문 내용)`}
-            rows={12} style={{ ...inputStyle, resize: 'vertical' as const, fontFamily: 'monospace, var(--font-body)' }} />
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>본문 *</span>
+          <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+            입력하는 그대로 화면에 반영됩니다. 저장 시 자동으로 마크다운으로 변환됩니다.
+          </p>
+          <input
+            ref={inlineImageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleInlineImagePick(e.target.files)}
+          />
+          <RichBodyEditor
+            key={bodyEditorKey}
+            ref={bodyEditorRef}
+            markdown={content}
+            placeholder="본문을 수정하세요. 제목·굵게·줄 바꿈·사진은 위 도구로 넣을 수 있습니다."
+            inlineImageUploading={inlineImageUploading}
+            onPickInlineImage={() => inlineImageInputRef.current?.click()}
+          />
+        </div>
 
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>작성자 표기 (선택)</span>
