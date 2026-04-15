@@ -25,12 +25,12 @@ create policy "Anyone can read comments"
 create policy "Anyone can insert comments"
   on public.post_comments for insert with check (true);
 
--- 수정/삭제는 추후 관리자 정책 (기본 차단)
+-- 수정은 기본 차단, 삭제는 서버 API에서 비밀번호 검증 후 허용
 create policy "No one updates comments yet"
   on public.post_comments for update using (false) with check (false);
 
-create policy "No one deletes comments yet"
-  on public.post_comments for delete using (false);
+create policy "Anyone can delete comments"
+  on public.post_comments for delete using (true);
 
 -- 2) 조회수 증가 (일반 update로 view_count 조작 방지)
 create or replace function public.increment_post_view_count(p_post_id uuid)
