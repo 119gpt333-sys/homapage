@@ -556,6 +556,7 @@ export async function deleteComment(
   password: string
 ): Promise<{ ok: boolean; error?: string }> {
   if (useDevStorageFallback()) {
+    if (password !== '161816') return { ok: false, error: '비밀번호가 올바르지 않습니다.' }
     const map = getLocalCommentsMap()
     const list = map[postId] ?? []
     const filtered = list.filter((c) => c.id !== commentId)
