@@ -550,6 +550,25 @@ export async function createComment(
   return data as PostComment
 }
 
+/** dev 환경에서 service role key 없이 anon client로 직접 댓글 삭제 */
+async function deleteCommentDirect(
+  postId: string,
+  commentId: string,
+  password: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (password !== '161816') return { ok: false, error: '비밀번호가 올바르지 않습니다.' }
+  const sb = getActiveClient()
+  if (!sb) return { ok: false, error: 'Supabase 클라이언트가 없습니다.' }
+  const { error, count } = await sb
+    .from('post_comments')
+    .delete({ count: 'exact' })
+    .eq('id', commentId)
+    .eq('post_id', postId)
+  if (error) return { ok: false, error: error.message }
+  if (count === 0) return { ok: false, error: '댓글을 찾을 수 없습니다.' }
+  return { ok: true }
+}
+
 export async function deleteComment(
   postId: string,
   commentId: string,
@@ -566,6 +585,7 @@ export async function deleteComment(
     return { ok: true }
   }
 
+  // 로컬 dev: /api/delete-comment 시도 → 실패 시 anon client로 직접 삭제 폴백
   try {
     const res = await fetch('/api/delete-comment', {
       method: 'POST',
@@ -573,9 +593,19 @@ export async function deleteComment(
       body: JSON.stringify({ commentId, postId, password }),
     })
     const data = (await res.json()) as { error?: string }
-    if (!res.ok) return { ok: false, error: data?.error ?? '삭제에 실패했습니다.' }
+    if (!res.ok) {
+      // 서버 설정 오류(service role key 미설정 등)이고 dev 환경이면 직접 삭제 시도
+      if (import.meta.env.DEV && res.status === 500) {
+        return deleteCommentDirect(postId, commentId, password)
+      }
+      return { ok: false, error: data?.error ?? '삭제에 실패했습니다.' }
+    }
     return { ok: true }
   } catch (err) {
+    // 네트워크 오류(로컬 API 미존재 등)이고 dev 환경이면 직접 삭제 시도
+    if (import.meta.env.DEV) {
+      return deleteCommentDirect(postId, commentId, password)
+    }
     console.error('[Supabase] deleteComment error', err)
     return { ok: false, error: '네트워크 오류가 발생했습니다.' }
   }
