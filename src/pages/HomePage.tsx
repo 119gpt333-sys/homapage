@@ -433,7 +433,7 @@ export function HomePage() {
                         </span>
                       </div>
                       <h3
-                        className="line-clamp-2 text-left text-[15px] font-semibold leading-snug sm:text-base"
+                        className="line-clamp-2 break-keep text-left text-[15px] font-semibold leading-snug sm:text-base"
                         style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}
                       >
                         {post.title}
@@ -721,7 +721,7 @@ export function HomePage() {
                       </div>
                     </div>
 
-                    <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-[var(--color-text-primary)] md:text-xl md:leading-snug">
+                    <h3 className="line-clamp-2 break-keep text-lg font-semibold leading-snug text-[var(--color-text-primary)] md:text-xl md:leading-snug">
                       {post.title}
                     </h3>
 
