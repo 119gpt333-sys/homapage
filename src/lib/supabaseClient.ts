@@ -225,10 +225,23 @@ export function getDisplayViewCountForPost(post: KnowledgePost): number {
 }
 
 function mergeLocalViewCounts(posts: KnowledgePost[]): KnowledgePost[] {
+  const commentsMap = getLocalCommentsMap()
   return posts.map((p) => ({
     ...p,
     view_count: getDisplayViewCountForPost(p),
+    comment_count: commentsMap[p.id]?.length ?? 0,
   }))
+}
+
+/** PostgREST embedded count → flat comment_count */
+function normalizePostCommentCount<T extends { post_comments?: { count: number }[] | null }>(
+  row: T,
+): Omit<T, 'post_comments'> & { comment_count: number } {
+  const { post_comments, ...rest } = row
+  const count = Array.isArray(post_comments) && post_comments[0]?.count
+    ? post_comments[0].count
+    : 0
+  return { ...rest, comment_count: count }
 }
 
 // ─── Image upload ───
@@ -318,7 +331,7 @@ export async function fetchPostsByCategory(
 
   let query = sb
     .from('knowledge_posts')
-    .select('*')
+    .select('*, post_comments(count)')
     .order('created_at', { ascending: false })
 
   if (category && category !== 'ALL') {
@@ -340,7 +353,8 @@ export async function fetchPostsByCategory(
     console.error('[Supabase] fetchPostsByCategory error', error)
     return []
   }
-  return (data ?? []) as KnowledgePost[]
+  type Row = KnowledgePost & { post_comments?: { count: number }[] | null }
+  return ((data ?? []) as Row[]).map(normalizePostCommentCount) as KnowledgePost[]
 }
 
 /** 대시보드 탭 기준 콘텐츠 카테고리 수 (전체 제외) */
@@ -401,7 +415,11 @@ export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
   if (useDevStorageFallback()) {
     const p = getLocalPostsOrSamples().find((x) => x.id === id) ?? null
     if (!p) return null
-    return { ...p, view_count: getDisplayViewCountForPost(p) }
+    return {
+      ...p,
+      view_count: getDisplayViewCountForPost(p),
+      comment_count: getLocalCommentsMap()[p.id]?.length ?? 0,
+    }
   }
 
   const sb = getActiveClient()
@@ -409,7 +427,7 @@ export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
 
   const { data, error } = await sb
     .from('knowledge_posts')
-    .select('*')
+    .select('*, post_comments(count)')
     .eq('id', id)
     .single()
 
@@ -417,7 +435,8 @@ export async function fetchPostById(id: string): Promise<KnowledgePost | null> {
     console.error('[Supabase] fetchPostById error', error)
     return null
   }
-  return data as KnowledgePost
+  type Row = KnowledgePost & { post_comments?: { count: number }[] | null }
+  return normalizePostCommentCount(data as Row) as KnowledgePost
 }
 
 /** 게시글 조회수 +1 (페이지 진입 시 1회). 새 조회수 반환. */

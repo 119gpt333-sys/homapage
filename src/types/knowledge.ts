@@ -22,6 +22,7 @@ export interface KnowledgePost {
   updated_at: string
   author_display_name: string | null
   view_count: number
+  comment_count?: number
 }
 
 /** 게시글 댓글 */

@@ -424,6 +424,13 @@ export function HomePage() {
                           <Eye className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
                           조회 {post.view_count ?? 0}
                         </span>
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px]"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          <MessageCircle className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                          댓글 {post.comment_count ?? 0}
+                        </span>
                       </div>
                       <h3
                         className="line-clamp-2 text-left text-[15px] font-semibold leading-snug sm:text-base"
@@ -727,6 +734,10 @@ export function HomePage() {
                         <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         <span className="truncate">{post.author_display_name || '익명 기여'}</span>
                         <span className="shrink-0">· 조회 {post.view_count ?? 0}</span>
+                        <span className="shrink-0 inline-flex items-center gap-0.5">
+                          · <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          {post.comment_count ?? 0}
+                        </span>
                       </span>
                       <span className="shrink-0 tabular-nums">
                         {new Date(post.created_at).toLocaleDateString('ko-KR')}

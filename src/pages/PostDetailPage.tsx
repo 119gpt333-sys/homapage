@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { MarkdownContent } from '../components/MarkdownContent'
-import { ArrowLeft, Eye, User, Calendar, Flame, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Eye, User, Calendar, Flame, Pencil, Trash2, MessageCircle } from 'lucide-react'
 import { fetchPostById, incrementPostViewCount } from '../lib/supabaseClient'
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal'
 import { PostComments } from '../components/PostComments'
@@ -168,6 +168,10 @@ export function PostDetailPage() {
           <span className="flex items-center gap-1.5">
             <Eye className="h-4 w-4 shrink-0 opacity-80" />
             조회 {post.view_count ?? 0}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <MessageCircle className="h-4 w-4 shrink-0 opacity-80" />
+            댓글 {post.comment_count ?? 0}
           </span>
         </div>
         <p className="text-sm leading-relaxed md:text-base" style={{ color: 'var(--color-text-muted)' }}>
