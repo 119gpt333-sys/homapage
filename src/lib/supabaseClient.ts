@@ -283,6 +283,99 @@ export async function uploadImage(file: File): Promise<string> {
   return urlData.publicUrl
 }
 
+// ─── Site banner (홈페이지 중앙 배너 이미지) ───
+
+const BANNER_SETTING_KEY = 'hero_banner_url'
+const LOCAL_BANNER_KEY = 'seoul-fire-gpt-banner-url'
+
+export async function getBannerImageUrl(): Promise<string | null> {
+  if (useDevStorageFallback()) {
+    try {
+      return localStorage.getItem(LOCAL_BANNER_KEY)
+    } catch {
+      return null
+    }
+  }
+  const sb = getActiveClient()
+  if (!sb) return null
+  const { data, error } = await sb
+    .from('site_settings')
+    .select('value')
+    .eq('key', BANNER_SETTING_KEY)
+    .maybeSingle()
+  if (error) {
+    console.error('[Supabase] getBannerImageUrl', error)
+    return null
+  }
+  return (data?.value as string | undefined) ?? null
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      const idx = result.indexOf('base64,')
+      resolve(idx >= 0 ? result.slice(idx + 'base64,'.length) : result)
+    }
+    reader.onerror = () => reject(new Error('파일 읽기 실패'))
+    reader.readAsDataURL(file)
+  })
+}
+
+export type UploadBannerResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string; status?: number }
+
+/**
+ * 배너 이미지 업로드.
+ * - dev (Supabase 미설정): localStorage + objectURL (비밀번호도 검증 안 함)
+ * - 그 외: /api/upload-banner 서버 라우트로 위임 → 서버가 비번/service-role 검증
+ */
+export async function uploadBannerImage(file: File, password: string): Promise<UploadBannerResult> {
+  if (useDevStorageFallback()) {
+    const url = URL.createObjectURL(file)
+    try {
+      localStorage.setItem(LOCAL_BANNER_KEY, url)
+    } catch {
+      /* ignore */
+    }
+    return { ok: true, url }
+  }
+
+  let fileBase64: string
+  try {
+    fileBase64 = await fileToBase64(file)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : '파일 인코딩 실패' }
+  }
+
+  try {
+    const res = await fetch('/api/upload-banner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        password,
+        fileName: file.name,
+        contentType: file.type || 'image/jpeg',
+        fileBase64,
+      }),
+    })
+    const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string }
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: data.error ?? '업로드 실패' }
+    }
+    if (!data.url) return { ok: false, error: '서버 응답에 URL이 없습니다.' }
+    return { ok: true, url: data.url }
+  } catch (err) {
+    console.error('[Supabase] uploadBannerImage api', err)
+    return {
+      ok: false,
+      error: '네트워크 오류가 발생했습니다. (로컬 dev 환경이라면 `vercel dev` 로 실행하거나 .env에 Supabase 미설정 상태에서 테스트하세요.)',
+    }
+  }
+}
+
 // ─── Posts API ───
 
 /** PostgREST `ilike` 패턴용 — 와일드카드·OR 구분자 왜곡 방지 */
@@ -575,7 +668,9 @@ async function deleteCommentDirect(
   commentId: string,
   password: string
 ): Promise<{ ok: boolean; error?: string }> {
-  if (password !== '161816') return { ok: false, error: '비밀번호가 올바르지 않습니다.' }
+  const expected = import.meta.env.VITE_ADMIN_PASSWORD as string | undefined
+  if (!expected) return { ok: false, error: 'dev 환경: .env.local 에 VITE_ADMIN_PASSWORD 를 설정하세요.' }
+  if (password !== expected) return { ok: false, error: '비밀번호가 올바르지 않습니다.' }
   const sb = getActiveClient()
   if (!sb) return { ok: false, error: 'Supabase 클라이언트가 없습니다.' }
   const { error, count } = await sb
@@ -594,7 +689,9 @@ export async function deleteComment(
   password: string
 ): Promise<{ ok: boolean; error?: string }> {
   if (useDevStorageFallback()) {
-    if (password !== '161816') return { ok: false, error: '비밀번호가 올바르지 않습니다.' }
+    const expected = import.meta.env.VITE_ADMIN_PASSWORD as string | undefined
+    if (!expected) return { ok: false, error: 'dev 환경: .env.local 에 VITE_ADMIN_PASSWORD 를 설정하세요.' }
+    if (password !== expected) return { ok: false, error: '비밀번호가 올바르지 않습니다.' }
     const map = getLocalCommentsMap()
     const list = map[postId] ?? []
     const filtered = list.filter((c) => c.id !== commentId)

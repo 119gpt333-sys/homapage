@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Bell,
   Eye,
@@ -16,10 +16,20 @@ import {
   Trash2,
   Calendar,
   Megaphone,
+  Image as ImageIcon,
+  Upload,
+  Lock,
+  X,
 } from 'lucide-react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import type { KnowledgePost, CategoryCode } from '../types/knowledge'
-import { fetchPostsByCategory, fetchKnowledgeStats, type KnowledgeStats } from '../lib/supabaseClient'
+import {
+  fetchPostsByCategory,
+  fetchKnowledgeStats,
+  getBannerImageUrl,
+  uploadBannerImage,
+  type KnowledgeStats,
+} from '../lib/supabaseClient'
 import { StatsSection } from '../components/StatsSection'
 import { LinkifyText } from '../lib/linkifyText'
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal'
@@ -136,6 +146,13 @@ export function HomePage() {
   const [knowledgeStats, setKnowledgeStats] = useState<KnowledgeStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [tabCounts, setTabCounts] = useState<Record<TabCountKey, number> | null>(null)
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
+  const [bannerPwOpen, setBannerPwOpen] = useState(false)
+  const [bannerPw, setBannerPw] = useState('')
+  const [bannerPwError, setBannerPwError] = useState<string | null>(null)
+  const [bannerUploading, setBannerUploading] = useState(false)
+  const [bannerUploadError, setBannerUploadError] = useState<string | null>(null)
+  const bannerFileInputRef = useRef<HTMLInputElement | null>(null)
 
   /** 공지 제외 전체 글을 다시 불러와 탭 배지 숫자 갱신 (삭제·외부 갱신 후 호출) */
   const updateTabCounts = useCallback(async () => {
@@ -190,6 +207,59 @@ export function HomePage() {
 
   const scrollToDashboard = () => {
     document.getElementById('content-dashboard')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    void getBannerImageUrl().then((url) => {
+      if (!cancelled) setBannerUrl(url)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const openBannerPasswordPrompt = () => {
+    setBannerPw('')
+    setBannerPwError(null)
+    setBannerUploadError(null)
+    setBannerPwOpen(true)
+  }
+
+  const submitBannerPassword = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!bannerPw) {
+      setBannerPwError('비밀번호를 입력하세요.')
+      return
+    }
+    // 클라이언트에서는 비번을 검증하지 않음 — /api/upload-banner 가 서버에서 검증
+    setBannerPwOpen(false)
+    setBannerPwError(null)
+    bannerFileInputRef.current?.click()
+  }
+
+  const handleBannerFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setBannerUploadError('이미지 파일만 업로드할 수 있습니다.')
+      return
+    }
+    setBannerUploading(true)
+    setBannerUploadError(null)
+    const result = await uploadBannerImage(file, bannerPw)
+    setBannerUploading(false)
+    if (result.ok) {
+      setBannerPw('')
+      setBannerUrl(`${result.url}?t=${Date.now()}`)
+      return
+    }
+    if (result.status === 403) {
+      // 비번 오류 → 모달 다시 띄우고 안내
+      setBannerPwError(result.error)
+      setBannerPwOpen(true)
+      return
+    }
+    setBannerUploadError(result.error)
   }
 
   return (
@@ -278,6 +348,140 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── 고해상도 이미지 배너 (업로드 가능) ── */}
+      <section className="mx-auto w-full">
+        <div
+          className="group relative aspect-video w-full overflow-hidden rounded-2xl border"
+          style={{
+            background: bannerUrl
+              ? 'rgba(0,0,0,0.4)'
+              : 'linear-gradient(135deg, rgba(220,38,38,0.08) 0%, rgba(20,20,22,0.9) 60%, rgba(10,10,12,1) 100%)',
+            borderColor: 'var(--color-border)',
+            boxShadow: '0 20px 60px -20px rgba(0,0,0,0.5)',
+          }}
+        >
+          {bannerUrl ? (
+            <img
+              src={bannerUrl}
+              alt="홈페이지 배너"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center">
+              <ImageIcon
+                className="h-10 w-10 opacity-40"
+                aria-hidden
+                style={{ color: 'var(--color-text-muted)' }}
+              />
+              <p
+                className="text-sm font-medium md:text-base"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                고해상도 이미지 영역 (16:9)
+              </p>
+            </div>
+          )}
+
+          {/* 중앙 업로드 버튼 — 이미지 없을 땐 항상, 있을 땐 호버 시 표시 */}
+          <div
+            className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity ${
+              bannerUrl ? 'opacity-0 group-hover:opacity-100 bg-black/35' : 'opacity-100'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={openBannerPasswordPrompt}
+              disabled={bannerUploading}
+              className="pointer-events-auto inline-flex items-center gap-2.5 rounded-full bg-red-600 px-7 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(220,38,38,0.45)] transition-all hover:scale-[1.03] hover:bg-red-500 disabled:opacity-60 md:px-8 md:py-4 md:text-lg"
+            >
+              <Upload className="h-5 w-5" aria-hidden />
+              {bannerUploading ? '업로드 중…' : bannerUrl ? '배너 이미지 변경' : '이미지 업로드'}
+            </button>
+          </div>
+
+          <input
+            ref={bannerFileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleBannerFileSelected}
+          />
+        </div>
+        {bannerUploadError && (
+          <p className="mt-2 text-center text-sm text-red-400">{bannerUploadError}</p>
+        )}
+      </section>
+
+      {/* ── 배너 업로드 비밀번호 모달 ── */}
+      {bannerPwOpen && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setBannerPwOpen(false)}
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={submitBannerPassword}
+            className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#141416] p-6 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(220,38,38,0.25) 0%, rgba(220,38,38,0.08) 100%)',
+                    border: '1px solid rgba(220,38,38,0.25)',
+                  }}
+                >
+                  <Lock className="h-4 w-4 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">접속 비밀번호</h3>
+                  <p className="text-xs text-zinc-400">배너 이미지 업로드를 위해 비밀번호를 입력하세요.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBannerPwOpen(false)}
+                className="rounded-lg p-1 text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
+                aria-label="닫기"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <input
+              type="password"
+              autoFocus
+              value={bannerPw}
+              onChange={(e) => { setBannerPw(e.target.value); setBannerPwError(null) }}
+              placeholder="비밀번호"
+              className="mt-5 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/30"
+            />
+            {bannerPwError && (
+              <p className="mt-2 text-xs text-red-400">{bannerPwError}</p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBannerPwOpen(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/5"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-500"
+              >
+                확인
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* ── 공지사항 ── */}
       {noticePosts.length > 0 && (
