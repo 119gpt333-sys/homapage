@@ -343,11 +343,11 @@ export async function uploadBannerImage(file: File, password: string): Promise<U
     return { ok: true, url }
   }
 
-  // 사전 용량 체크 — base64 인코딩 후 약 1.33배 → 서버 5MB 한도 맞춤
-  if (file.size > 3.5 * 1024 * 1024) {
+  // 안전 캡 — HomePage 에서 3MB 목표로 압축 후 호출됨. 극단적 압축 실패 시만 차단.
+  if (file.size > 4 * 1024 * 1024) {
     return {
       ok: false,
-      error: `파일이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 3.5MB 이하로 압축해 업로드해 주세요.`,
+      error: `압축 후에도 파일이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 더 작은 이미지로 시도해 주세요.`,
     }
   }
 

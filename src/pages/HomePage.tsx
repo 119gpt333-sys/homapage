@@ -30,6 +30,7 @@ import {
   uploadBannerImage,
   type KnowledgeStats,
 } from '../lib/supabaseClient'
+import { compressImageToMaxBytes } from '../lib/imageCompress'
 import { StatsSection } from '../components/StatsSection'
 import { LinkifyText } from '../lib/linkifyText'
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal'
@@ -246,7 +247,17 @@ export function HomePage() {
     }
     setBannerUploading(true)
     setBannerUploadError(null)
-    const result = await uploadBannerImage(file, bannerPw)
+
+    let toUpload: File
+    try {
+      toUpload = await compressImageToMaxBytes(file, { maxBytes: 3 * 1024 * 1024, maxDimension: 1920 })
+    } catch (err) {
+      setBannerUploading(false)
+      setBannerUploadError(err instanceof Error ? `압축 실패: ${err.message}` : '이미지 압축 실패')
+      return
+    }
+
+    const result = await uploadBannerImage(toUpload, bannerPw)
     setBannerUploading(false)
     if (result.ok) {
       setBannerPw('')
@@ -254,7 +265,6 @@ export function HomePage() {
       return
     }
     if (result.status === 403) {
-      // 비번 오류 → 모달 다시 띄우고 안내
       setBannerPwError(result.error)
       setBannerPwOpen(true)
       return
@@ -396,7 +406,7 @@ export function HomePage() {
               className="pointer-events-auto inline-flex items-center gap-2.5 rounded-full bg-red-600 px-7 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(220,38,38,0.45)] transition-all hover:scale-[1.03] hover:bg-red-500 disabled:opacity-60 md:px-8 md:py-4 md:text-lg"
             >
               <Upload className="h-5 w-5" aria-hidden />
-              {bannerUploading ? '업로드 중…' : bannerUrl ? '배너 이미지 변경' : '이미지 업로드'}
+              {bannerUploading ? '압축·업로드 중…' : bannerUrl ? '배너 이미지 변경' : '이미지 업로드'}
             </button>
           </div>
 
