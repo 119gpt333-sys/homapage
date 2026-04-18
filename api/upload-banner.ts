@@ -34,8 +34,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabaseUrl =
     process.env.VITE_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim()
 
-  if (!adminPassword || !serviceKey || !supabaseUrl) {
-    return res.status(500).json({ error: '서버 설정 오류 (ADMIN_PASSWORD/SUPABASE_SERVICE_ROLE_KEY/SUPABASE_URL 확인)' })
+  const missing: string[] = []
+  if (!adminPassword) missing.push('ADMIN_PASSWORD')
+  if (!serviceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY')
+  if (!supabaseUrl) missing.push('VITE_SUPABASE_URL (또는 SUPABASE_URL)')
+  if (missing.length > 0) {
+    return res.status(500).json({
+      error: `서버 환경변수 누락: ${missing.join(', ')} — Vercel Project Settings → Environment Variables 에 추가 후 Redeploy 하세요.`,
+    })
   }
   if (password !== adminPassword) {
     return res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' })
