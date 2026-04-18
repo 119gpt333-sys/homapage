@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const ext = safeName.includes('.') ? safeName.split('.').pop() : 'jpg'
   const path = `hero/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
-  const supabase = createClient(supabaseUrl, serviceKey, {
+  const supabase = createClient(supabaseUrl!, serviceKey!, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 

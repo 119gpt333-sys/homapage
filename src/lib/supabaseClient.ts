@@ -343,6 +343,14 @@ export async function uploadBannerImage(file: File, password: string): Promise<U
     return { ok: true, url }
   }
 
+  // 사전 용량 체크 — base64 인코딩 후 약 1.33배 → 서버 5MB 한도 맞춤
+  if (file.size > 3.5 * 1024 * 1024) {
+    return {
+      ok: false,
+      error: `파일이 너무 큽니다 (${(file.size / 1024 / 1024).toFixed(1)}MB). 3.5MB 이하로 압축해 업로드해 주세요.`,
+    }
+  }
+
   let fileBase64: string
   try {
     fileBase64 = await fileToBase64(file)
@@ -361,12 +369,23 @@ export async function uploadBannerImage(file: File, password: string): Promise<U
         fileBase64,
       }),
     })
-    const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string }
-    if (!res.ok) {
-      return { ok: false, status: res.status, error: data.error ?? '업로드 실패' }
+
+    // 응답 본문을 텍스트로 먼저 읽어 JSON 파싱 실패 시에도 원문 노출
+    const raw = await res.text()
+    let parsed: { url?: string; error?: string } = {}
+    try {
+      parsed = raw ? (JSON.parse(raw) as { url?: string; error?: string }) : {}
+    } catch {
+      /* 비-JSON 응답 (Vercel 413, 504 등) — raw 그대로 사용 */
     }
-    if (!data.url) return { ok: false, error: '서버 응답에 URL이 없습니다.' }
-    return { ok: true, url: data.url }
+
+    if (!res.ok) {
+      const detail = parsed.error || raw.slice(0, 300) || `HTTP ${res.status}`
+      console.error('[Supabase] uploadBannerImage non-ok', res.status, raw)
+      return { ok: false, status: res.status, error: `[${res.status}] ${detail}` }
+    }
+    if (!parsed.url) return { ok: false, error: '서버 응답에 URL이 없습니다.' }
+    return { ok: true, url: parsed.url }
   } catch (err) {
     console.error('[Supabase] uploadBannerImage api', err)
     return {
