@@ -9,8 +9,8 @@ export function Card({ className, children, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-3xl border border-white/10 bg-card/60 p-5 shadow-glass backdrop-blur-xl',
-        'transition-colors duration-200 hover:border-white/20',
+        'rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900',
+        'transition-colors duration-200',
         className,
       )}
       {...props}
@@ -19,4 +19,3 @@ export function Card({ className, children, ...props }: CardProps) {
     </div>
   )
 }
-
