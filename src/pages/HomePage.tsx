@@ -1,128 +1,33 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  Bell,
   Eye,
-  Brain,
-  GraduationCap,
-  FlaskConical,
-  BookOpen,
-  PlayCircle,
-  MessageCircle,
   PenLine,
   ArrowRight,
-  Flame,
-  LayoutGrid,
+  Pin,
   Pencil,
   Trash2,
-  Calendar,
-  Megaphone,
 } from 'lucide-react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import type { KnowledgePost, CategoryCode } from '../types/knowledge'
 import { fetchPostsByCategory, fetchKnowledgeStats, type KnowledgeStats } from '../lib/supabaseClient'
-import { StatsSection } from '../components/StatsSection'
 import { LinkifyText } from '../lib/linkifyText'
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal'
-
-/** 공지 행 배지: 최근 7일 NEW, 조회수 높으면 HOT (NEW 우선) */
-function getNoticeBadge(post: KnowledgePost): 'NEW' | 'HOT' | null {
-  const ageDays = (Date.now() - new Date(post.created_at).getTime()) / 86_400_000
-  if (ageDays <= 7) return 'NEW'
-  if ((post.view_count ?? 0) >= 40) return 'HOT'
-  return null
-}
-
-const heroVisualCategories: {
-  code: CategoryCode
-  label: string
-  icon: React.ReactNode
-}[] = [
-  { code: 'AI_UTIL', label: 'AI 활용', icon: <Brain className="h-7 w-7" strokeWidth={2} /> },
-  { code: 'LECTURE', label: '강의신청', icon: <GraduationCap className="h-7 w-7" strokeWidth={2} /> },
-  { code: 'RESEARCH', label: '연구자료', icon: <FlaskConical className="h-7 w-7" strokeWidth={2} /> },
-  { code: 'BOOK', label: '추천도서', icon: <BookOpen className="h-7 w-7" strokeWidth={2} /> },
-]
 
 const categories: {
   code: CategoryCode | 'ALL'
   label: string
-  description: string
-  icon: React.ReactNode
-  color: string
 }[] = [
-  { code: 'ALL', label: '전체', description: '서울소방 지식 전체 보기', icon: <LayoutGrid className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#ef4444' },
-  { code: 'AI_UTIL', label: 'AI 활용', description: 'AI 도구·활용 사례', icon: <Brain className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#22d3ee' },
-  { code: 'LECTURE', label: '강의신청', description: '교육·훈련·강의', icon: <GraduationCap className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#a78bfa' },
-  { code: 'BOARD', label: '자유게시판', description: '현장 노하우·자유 토론', icon: <MessageCircle className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#94a3b8' },
-  { code: 'RESEARCH', label: '연구자료', description: '통계·분석·연구', icon: <FlaskConical className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#f472b6' },
-  { code: 'BOOK', label: '추천도서', description: '꼭 읽어야 할 도서', icon: <BookOpen className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#f97316' },
-  { code: 'YOUTUBE', label: '필독 유튜브', description: '중요 교육·훈련 영상', icon: <PlayCircle className="h-4 w-4 shrink-0" strokeWidth={2.25} />, color: '#ef4444' },
+  { code: 'ALL', label: '전체' },
+  { code: 'AI_UTIL', label: 'AI 활용' },
+  { code: 'LECTURE', label: '강의신청' },
+  { code: 'BOARD', label: '자유게시판' },
+  { code: 'RESEARCH', label: '연구자료' },
+  { code: 'BOOK', label: '추천도서' },
+  { code: 'YOUTUBE', label: '필독 유튜브' },
 ]
 
-const noticeCategory = { color: '#fbbf24' as const }
-
-function getCategoryCardUi(category: CategoryCode): { badge: string; thumbBg: string; icon: ReactNode } {
-  const iconCls = 'h-14 w-14 shrink-0 opacity-40'
-  switch (category) {
-    case 'AI_UTIL':
-      return {
-        badge: 'text-violet-400 bg-violet-500/15',
-        thumbBg: 'bg-violet-600/35',
-        icon: <Brain className={iconCls} strokeWidth={1.5} />,
-      }
-    case 'LECTURE':
-      return {
-        badge: 'text-yellow-400 bg-yellow-500/15',
-        thumbBg: 'bg-yellow-600/30',
-        icon: <GraduationCap className={iconCls} strokeWidth={1.5} />,
-      }
-    case 'BOARD':
-      return {
-        badge: 'text-blue-400 bg-blue-500/15',
-        thumbBg: 'bg-blue-600/35',
-        icon: <MessageCircle className={iconCls} strokeWidth={1.5} />,
-      }
-    case 'RESEARCH':
-      return {
-        badge: 'text-green-400 bg-green-500/15',
-        thumbBg: 'bg-green-600/35',
-        icon: <FlaskConical className={iconCls} strokeWidth={1.5} />,
-      }
-    case 'BOOK':
-      return {
-        badge: 'text-pink-400 bg-pink-500/15',
-        thumbBg: 'bg-pink-600/35',
-        icon: <BookOpen className={iconCls} strokeWidth={1.5} />,
-      }
-    case 'YOUTUBE':
-      return {
-        badge: 'text-red-400 bg-red-500/15',
-        thumbBg: 'bg-red-600/35',
-        icon: <PlayCircle className={iconCls} strokeWidth={1.5} />,
-      }
-    default:
-      return {
-        badge: 'text-zinc-400 bg-zinc-500/15',
-        thumbBg: 'bg-zinc-600/35',
-        icon: <LayoutGrid className={iconCls} strokeWidth={1.5} />,
-      }
-  }
-}
-
-/** 대시보드 탭 배지용 — NOTICE 제외한 글만 집계 */
-type TabCountKey = CategoryCode | 'ALL'
-
-function computeTabCountsFromRows(rows: KnowledgePost[]): Record<TabCountKey, number> {
-  const byCategory: Partial<Record<CategoryCode, number>> = {}
-  for (const p of rows) {
-    byCategory[p.category] = (byCategory[p.category] ?? 0) + 1
-  }
-  const counts = {} as Record<TabCountKey, number>
-  counts.ALL = rows.length
-  for (const cat of categories) {
-    if (cat.code !== 'ALL') counts[cat.code] = byCategory[cat.code] ?? 0
-  }
-  return counts
+function getCategoryLabel(code: CategoryCode): string {
+  return categories.find((c) => c.code === code)?.label ?? code
 }
 
 export function HomePage() {
@@ -134,33 +39,15 @@ export function HomePage() {
   const [loading, setLoading] = useState(false)
   const [deletePostId, setDeletePostId] = useState<string | null>(null)
   const [knowledgeStats, setKnowledgeStats] = useState<KnowledgeStats | null>(null)
-  const [statsLoading, setStatsLoading] = useState(true)
-  const [tabCounts, setTabCounts] = useState<Record<TabCountKey, number> | null>(null)
 
-  /** 공지 제외 전체 글을 다시 불러와 탭 배지 숫자 갱신 (삭제·외부 갱신 후 호출) */
-  const updateTabCounts = useCallback(async () => {
-    const rows = await fetchPostsByCategory(undefined, { excludeCategories: ['NOTICE'] })
-    setTabCounts(computeTabCountsFromRows(rows))
+  const updateStats = useCallback(async () => {
+    const st = await fetchKnowledgeStats()
+    setKnowledgeStats(st)
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      setStatsLoading(true)
-      const st = await fetchKnowledgeStats()
-      if (!cancelled) {
-        setKnowledgeStats(st)
-        setStatsLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [location.search])
-
-  useEffect(() => {
-    void updateTabCounts()
-  }, [location.search, updateTabCounts])
+    void updateStats()
+  }, [location.search, updateStats])
 
   useEffect(() => {
     let cancelled = false
@@ -188,556 +75,174 @@ export function HomePage() {
     return () => { cancelled = true }
   }, [selected, location.search])
 
-  const scrollToDashboard = () => {
-    document.getElementById('content-dashboard')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
   return (
-    <div className="space-y-6">
-      {/* ── Hero ── */}
-      <section
-        className="relative overflow-hidden rounded-2xl border border-[var(--color-border)] px-6 py-10 md:px-10 md:py-14"
-        style={{ background: 'var(--color-card)' }}
-      >
-        {/* 빨간 glow (radial + blur) */}
-        <div
-          className="pointer-events-none absolute left-[55%] top-1/2 h-[min(120%,520px)] w-[min(90vw,640px)] -translate-x-1/2 -translate-y-1/2 blur-[80px] md:left-[65%] md:blur-[100px]"
-          style={{
-            background: 'radial-gradient(ellipse at center, rgb(220 38 38) 0%, transparent 68%)',
-            opacity: 0.08,
-          }}
-          aria-hidden
-        />
-
-        <div className="relative z-10 grid grid-cols-1 items-center gap-12 md:grid-cols-2">
-          {/* 좌측: 카피 + CTA */}
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-500">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-              </span>
-              AI 시대를 선도하는 서울소방 GPT
-            </div>
-
-            <h1
-              className="mt-5 text-balance text-[2.45rem] font-bold leading-[1.12] tracking-tight sm:text-5xl md:text-6xl lg:text-[3.35rem]"
-              style={{ fontFamily: 'var(--font-heading)' }}
-            >
-              {/* 좁은 창(절반 등): 4줄 */}
-              <span className="block xl:hidden">
-                <span className="block text-[var(--color-text-primary)]">서울소방</span>
-                <span className="mt-0.5 block text-[var(--color-text-primary)] sm:mt-1">GPT의</span>
-                <span className="mt-1 block text-red-500 sm:mt-1.5">AI 지식</span>
-                <span className="mt-0.5 block text-red-500 sm:mt-1">아카이브</span>
-              </span>
-              {/* 넓은 화면(xl+): 2줄 */}
-              <span className="hidden xl:block">
-                <span className="block text-[var(--color-text-primary)]">서울소방 GPT의</span>
-                <span className="mt-1 block text-red-500 sm:mt-1.5">AI 지식 아카이브</span>
-              </span>
-            </h1>
-
-            <p className="mt-5 max-w-xl text-lg leading-[1.65] text-[var(--color-text-secondary)] md:mt-6 md:text-xl md:leading-relaxed">
-              AI 활용·강의·연구자료·추천도서까지 — 현장과 사무실에서 필요한 지식을 한곳에서 탐색하고 기록하세요.
+    <div className="space-y-8">
+      {/* -- Intro -- */}
+      <section className="pt-2">
+        <h1
+          className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl dark:text-white"
+          style={{ fontFamily: 'var(--font-heading)' }}
+        >
+          서울소방 GPT 지식 아카이브
+        </h1>
+        <p className="mt-2 text-base text-zinc-500 dark:text-zinc-400">
+          AI 활용 · 강의 · 연구자료 · 추천도서 — 현장에서 필요한 지식을 한곳에서
+        </p>
+        <div className="mt-3 flex items-center gap-4">
+          {knowledgeStats && (
+            <p className="text-sm tabular-nums text-zinc-400 dark:text-zinc-500">
+              {knowledgeStats.totalPosts} Posts · {knowledgeStats.categoryCount} Topics · {knowledgeStats.totalViews} Views
             </p>
-
-            <div className="mt-8">
-              <Link
-                to="/write"
-                className="inline-flex items-center gap-2 rounded-full bg-red-600 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-red-500"
-              >
-                글쓰기
-                <PenLine className="h-4 w-4" aria-hidden />
-              </Link>
-            </div>
-          </div>
-
-          {/* 우측: 플로팅 카드 4 */}
-          <div className="grid grid-cols-2 gap-4 md:gap-5">
-            {heroVisualCategories.map((item) => {
-              const meta = categories.find((c) => c.code === item.code)
-              return (
-                <button
-                  key={item.code}
-                  type="button"
-                  onClick={() => {
-                    setSelected(item.code)
-                    scrollToDashboard()
-                  }}
-                  className="flex flex-col items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center transition-all hover:-translate-y-1 hover:shadow-lg"
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
-                  <span className="shrink-0 [&>svg]:text-current" style={{ color: meta?.color ?? 'var(--color-accent)' }} aria-hidden>
-                    {item.icon}
-                  </span>
-                  <span className="text-base font-semibold md:text-lg">{item.label}</span>
-                </button>
-              )
-            })}
-          </div>
+          )}
+          <Link
+            to="/write"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            <PenLine className="h-3.5 w-3.5" />
+            글쓰기
+          </Link>
         </div>
       </section>
 
-      {/* ── 공지사항 ── */}
-      {noticePosts.length > 0 && (
-        <section
-          className="notice-board relative overflow-hidden rounded-2xl p-5 sm:p-6"
-          style={{
-            background: 'linear-gradient(165deg, rgba(251,191,36,0.06) 0%, var(--color-card) 42%, var(--color-card) 100%)',
-            border: '1px solid rgba(251,191,36,0.12)',
-            boxShadow: '0 2px 24px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.04)',
-          }}
-        >
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-px"
-            style={{
-              background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.55), rgba(252,211,77,0.35), transparent)',
-            }}
-          />
-          <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
-                style={{
-                  background: 'linear-gradient(145deg, rgba(251,191,36,0.22) 0%, rgba(251,191,36,0.06) 100%)',
-                  border: '1px solid rgba(251,191,36,0.22)',
-                  boxShadow: '0 4px 20px rgba(251,191,36,0.08)',
-                }}
+      {/* -- Category Tabs -- */}
+      <section>
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="카테고리">
+          {categories.map((cat) => {
+            const active = selected === cat.code
+            return (
+              <button
+                key={cat.code}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setSelected(cat.code)}
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                }`}
               >
-                <Megaphone className="h-5 w-5" style={{ color: noticeCategory.color }} strokeWidth={2} />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2
-                    className="text-lg font-bold tracking-tight sm:text-xl"
-                    style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}
-                  >
-                    공지사항
-                  </h2>
-                  <span
-                    className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-                    style={{
-                      background: 'rgba(251,191,36,0.12)',
-                      color: '#fcd34d',
-                      border: '1px solid rgba(251,191,36,0.2)',
-                    }}
-                  >
-                    필독
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs leading-relaxed sm:text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
-                  서울소방GPT 주요 안내와 업데이트를 확인하세요.
-                </p>
-              </div>
-            </div>
+                {cat.label}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* -- Pinned Notices -- */}
+      {noticePosts.length > 0 && (
+        <section>
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {noticePosts.map((post) => (
+              <Link
+                key={post.id}
+                to={`/post/${post.id}`}
+                className="group flex items-center gap-3 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+              >
+                <Pin className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {post.title}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+                  {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                </span>
+              </Link>
+            ))}
           </div>
-
-          <ul className="relative flex list-none flex-col gap-2.5 p-0 sm:gap-3">
-            {noticePosts.map((post, idx) => {
-              const handleClick = () => navigate(`/post/${post.id}`)
-              const cover = post.thumbnail_url ?? post.image_urls?.[0]
-              const badge = getNoticeBadge(post)
-              const dateLabel = new Date(post.created_at).toLocaleDateString('ko-KR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })
-              return (
-                <li key={post.id} className="p-0">
-                  <article
-                    role="button"
-                    tabIndex={0}
-                    onClick={handleClick}
-                    onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-                    className="notice-card-enter group relative flex cursor-pointer overflow-hidden rounded-xl border border-white/[0.06] transition-all duration-300 hover:border-amber-400/18 hover:bg-white/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a] sm:rounded-2xl"
-                    style={{
-                      animationDelay: `${idx * 55}ms`,
-                      background: 'rgba(10,10,10,0.45)',
-                      boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset',
-                    }}
-                  >
-                    <div
-                      className="w-1 shrink-0 sm:w-1.5"
-                      style={{
-                        background: 'linear-gradient(180deg, #fcd34d 0%, #d97706 50%, rgba(217,119,6,0.35) 100%)',
-                      }}
-                      aria-hidden
-                    />
-                    <div
-                      className="relative h-[92px] w-[100px] shrink-0 overflow-hidden sm:h-[104px] sm:w-[124px]"
-                      style={{ background: 'rgba(0,0,0,0.35)' }}
-                    >
-                      {cover ? (
-                        <img src={cover} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                      ) : (
-                        <div
-                          className="flex h-full w-full items-center justify-center"
-                          style={{
-                            background: 'linear-gradient(160deg, rgba(251,191,36,0.12) 0%, rgba(251,191,36,0.03) 100%)',
-                          }}
-                        >
-                          <Bell className="h-9 w-9 opacity-35 sm:h-10 sm:w-10" style={{ color: noticeCategory.color }} />
-                        </div>
-                      )}
-                      <div
-                        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                        style={{
-                          background: 'linear-gradient(90deg, transparent 40%, rgba(251,191,36,0.06) 100%)',
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 py-3 pl-3 pr-[4.75rem] sm:pl-4 md:pr-48">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className="rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide"
-                          style={{
-                            background: 'rgba(251,191,36,0.14)',
-                            color: '#fde68a',
-                            border: '1px solid rgba(251,191,36,0.22)',
-                          }}
-                        >
-                          공지
-                        </span>
-                        {badge === 'NEW' && (
-                          <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-500">
-                            NEW
-                          </span>
-                        )}
-                        {badge === 'HOT' && (
-                          <span className="rounded-full bg-orange-400/15 px-2 py-0.5 text-[10px] font-bold text-orange-400">
-                            HOT
-                          </span>
-                        )}
-                        <span
-                          className="inline-flex items-center gap-1 text-[11px]"
-                          style={{ color: 'var(--color-text-muted)' }}
-                        >
-                          <Calendar className="h-3 w-3 shrink-0 opacity-70" />
-                          {dateLabel}
-                        </span>
-                        <span
-                          className="inline-flex items-center gap-1 text-[11px]"
-                          style={{ color: 'var(--color-text-muted)' }}
-                        >
-                          <Eye className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
-                          조회 {post.view_count ?? 0}
-                        </span>
-                      </div>
-                      <h3
-                        className="line-clamp-2 text-left text-[15px] font-semibold leading-snug sm:text-base"
-                        style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}
-                      >
-                        {post.title}
-                      </h3>
-                      {post.summary?.trim() ? (
-                        <p className="line-clamp-1 text-left text-xs leading-relaxed sm:text-[13px]" style={{ color: 'var(--color-text-secondary)' }}>
-                          <LinkifyText>{post.summary}</LinkifyText>
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-2">
-                      <span
-                        className="mr-0.5 hidden items-center gap-0.5 text-[11px] font-medium transition-colors group-hover:text-amber-200/90 md:inline-flex"
-                        style={{ color: 'rgba(253,230,138,0.75)' }}
-                      >
-                        보기
-                        <ArrowRight className="h-3 w-3" />
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <Link
-                          to={`/post/${post.id}/edit`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg backdrop-blur-sm transition-all hover:opacity-95 md:h-auto md:w-auto md:gap-1 md:px-2.5 md:py-1"
-                          style={{
-                            color: '#fff',
-                            background: 'rgba(220,38,38,0.85)',
-                            border: '1px solid rgba(248,113,113,0.35)',
-                          }}
-                          title="수정"
-                        >
-                          <Pencil className="h-3.5 w-3.5 md:hidden" />
-                          <span className="hidden text-[10px] font-semibold md:inline">수정</span>
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setDeletePostId(post.id) }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg backdrop-blur-sm transition-all hover:opacity-95 md:h-auto md:w-auto md:gap-1 md:px-2.5 md:py-1"
-                          style={{
-                            color: '#fecaca',
-                            background: 'rgba(127,29,29,0.55)',
-                            border: '1px solid rgba(248,113,113,0.25)',
-                          }}
-                          title="삭제"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 md:hidden" />
-                          <span className="hidden text-[10px] font-semibold md:inline">삭제</span>
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                </li>
-              )
-            })}
-          </ul>
         </section>
       )}
 
-      <StatsSection stats={knowledgeStats} loading={statsLoading} />
-
-      {/* ── 콘텐츠 대시보드 ── */}
-      <section
-        id="content-dashboard"
-        className="dashboard-section scroll-mt-28 rounded-2xl p-5"
-        style={{
-          background: 'var(--color-card)',
-          border: '1px solid var(--color-border)',
-          boxShadow: '0 2px 20px rgba(0,0,0,0.2)',
-        }}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{
-                background: 'linear-gradient(135deg, rgba(220,38,38,0.2) 0%, rgba(220,38,38,0.08) 100%)',
-                border: '1px solid rgba(220,38,38,0.2)',
-              }}
-            >
-              <LayoutGrid className="h-4 w-4" style={{ color: 'var(--color-accent)' }} />
-            </div>
-            <div>
-              <h2
-                className="text-lg font-bold tracking-tight md:text-xl"
-                style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}
-              >
-                콘텐츠 대시보드
-              </h2>
-              <p className="text-sm md:text-base" style={{ color: 'var(--color-text-muted)' }}>
-                AI 활용·강의·자유게시판·연구자료
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3" role="tablist" aria-label="콘텐츠 카테고리">
-          {/* 1행: 전체 · AI 활용 · 강의신청 · 자유게시판 */}
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
-            {categories.slice(0, 4).map((cat) => {
-              const active = selected === cat.code
-              const count = tabCounts !== null ? tabCounts[cat.code] : null
-              return (
-                <button
-                  key={cat.code}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  aria-label={
-                    count === null ? cat.label : `${cat.label} ${count}건`
-                  }
-                  onClick={() => setSelected(cat.code)}
-                  className={`flex w-full min-h-[3rem] items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition sm:min-h-0 sm:rounded-full sm:px-4 sm:py-3 sm:text-base md:px-5 [&_svg]:h-5 [&_svg]:w-5 ${
-                    active
-                      ? 'border-red-600 bg-red-600 text-white shadow-[0_4px_20px_rgba(220,38,38,0.25)]'
-                      : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:border-[var(--color-border)] hover:text-[var(--color-text-secondary)]'
-                  }`}
-                >
-                  <span
-                    className="inline-flex shrink-0 [&>svg]:text-current"
-                    style={active ? undefined : { color: cat.color }}
-                  >
-                    {cat.icon}
-                  </span>
-                  <span className="inline-flex min-w-0 flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-center">
-                    <span className="whitespace-nowrap">{cat.label}</span>
-                    <span
-                      className={`tab-count min-w-[1.5rem] rounded-full px-[0.4rem] py-[0.1rem] text-center text-xs font-semibold tabular-nums ${
-                        active
-                          ? 'bg-white/25 text-white ring-1 ring-white/35'
-                          : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
-                      }`}
-                    >
-                      {count === null ? '·' : count}
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-          {/* 2행: 연구자료 · 추천도서 · 필독 유튜브 */}
-          <div className="grid grid-cols-2 gap-2.5 sm:mx-auto sm:grid-cols-3 sm:gap-3 sm:max-w-4xl sm:w-full">
-            {categories.slice(4).map((cat, idx) => {
-              const active = selected === cat.code
-              const count = tabCounts !== null ? tabCounts[cat.code] : null
-              const row2Third = idx === 2
-              return (
-                <button
-                  key={cat.code}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  aria-label={
-                    count === null ? cat.label : `${cat.label} ${count}건`
-                  }
-                  onClick={() => setSelected(cat.code)}
-                  className={`flex min-h-[3rem] items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition sm:min-h-0 sm:w-full sm:rounded-full sm:px-4 sm:py-3 sm:text-base md:px-5 [&_svg]:h-5 [&_svg]:w-5 ${
-                    row2Third ? 'col-span-2 w-full max-w-xs justify-self-center sm:col-span-1 sm:max-w-none sm:justify-self-stretch' : 'w-full'
-                  } ${
-                    active
-                      ? 'border-red-600 bg-red-600 text-white shadow-[0_4px_20px_rgba(220,38,38,0.25)]'
-                      : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:border-[var(--color-border)] hover:text-[var(--color-text-secondary)]'
-                  }`}
-                >
-                  <span
-                    className="inline-flex shrink-0 [&>svg]:text-current"
-                    style={active ? undefined : { color: cat.color }}
-                  >
-                    {cat.icon}
-                  </span>
-                  <span className="inline-flex min-w-0 flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-center">
-                    <span className="whitespace-nowrap">{cat.label}</span>
-                    <span
-                      className={`tab-count min-w-[1.5rem] rounded-full px-[0.4rem] py-[0.1rem] text-center text-xs font-semibold tabular-nums ${
-                        active
-                          ? 'bg-white/25 text-white ring-1 ring-white/35'
-                          : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
-                      }`}
-                    >
-                      {count === null ? '·' : count}
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Post Cards ── */}
+      {/* -- Post List -- */}
       <section>
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface)]"
-              >
-                <div className="aspect-video bg-[var(--color-surface-3)]" />
-                <div className="space-y-3 p-4">
-                  <div className="h-5 w-14 rounded-full bg-[var(--color-surface-3)]" />
-                  <div className="h-4 w-full rounded bg-[var(--color-surface-3)]" />
-                  <div className="h-3 w-full rounded bg-[var(--color-surface-3)]" />
-                  <div className="h-3 w-2/3 rounded bg-[var(--color-surface-3)]" />
-                </div>
+        {loading ? (
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="animate-pulse py-5">
+                <div className="h-4 w-16 rounded bg-zinc-200 dark:bg-zinc-700" />
+                <div className="mt-2 h-5 w-3/4 rounded bg-zinc-200 dark:bg-zinc-700" />
+                <div className="mt-2 h-4 w-full rounded bg-zinc-100 dark:bg-zinc-800" />
+                <div className="mt-2 h-3 w-1/3 rounded bg-zinc-100 dark:bg-zinc-800" />
               </div>
-            ))
-          ) : posts.length === 0 ? (
-            <div
-              className="col-span-full rounded-xl border border-dashed border-[var(--color-border-hover)] bg-[var(--color-surface)] p-10 text-center"
-            >
-              <Flame className="mx-auto mb-3 h-10 w-10 text-[var(--color-text-muted)]" />
-              {new URLSearchParams(location.search).get('q')?.trim() ? (
-                <>
-                  <p className="text-base font-medium text-[var(--color-text-secondary)]">검색 결과가 없습니다.</p>
-                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">다른 검색어나 카테고리를 선택해 보세요.</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-base font-medium text-[var(--color-text-secondary)]">등록된 지식 카드가 없습니다.</p>
-                  <Link
-                    to="/write"
-                    className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-accent-light)]"
-                  >
-                    첫 지식을 기록해 보세요
-                    <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </>
-              )}
-            </div>
-          ) : (
-            posts.map((post, idx) => {
-              const cat = categories.find((c) => c.code === post.category)
-              const ui = getCategoryCardUi(post.category)
-              const thumbSrc = post.thumbnail_url ?? post.image_urls?.[0]
-              const handleClick = () => navigate(`/post/${post.id}`)
-              return (
-                <div
-                  key={post.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={handleClick}
-                  onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-                  className="post-card-enter flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface)] transition-all hover:-translate-y-1 hover:shadow-lg"
-                  style={{ animationDelay: `${Math.min(idx, 12) * 45}ms` }}
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-zinc-300 py-16 text-center dark:border-zinc-700">
+            {new URLSearchParams(location.search).get('q')?.trim() ? (
+              <>
+                <p className="text-base font-medium text-zinc-600 dark:text-zinc-400">검색 결과가 없습니다.</p>
+                <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">다른 검색어나 카테고리를 선택해 보세요.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-base font-medium text-zinc-600 dark:text-zinc-400">등록된 글이 없습니다.</p>
+                <Link
+                  to="/write"
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-zinc-900 dark:text-white"
                 >
-                  <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-black/20">
-                    {thumbSrc ? (
-                      <img src={thumbSrc} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div
-                        className={`flex h-full w-full items-center justify-center ${ui.thumbBg}`}
-                      >
-                        {ui.icon}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-1 flex-col p-5">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${ui.badge}`}
-                      >
-                        {cat?.label ?? post.category}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <Link
-                          to={`/post/${post.id}/edit`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-0.5 rounded-md border border-red-600/40 bg-red-600 px-1.5 py-0.5 text-[9px] font-medium text-white hover:bg-red-500"
-                        >
-                          <Pencil className="h-2.5 w-2.5" />
-                          수정
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeletePostId(post.id)
-                          }}
-                          className="flex items-center gap-0.5 rounded-md border border-red-700 bg-red-700 px-1.5 py-0.5 text-[9px] font-medium text-white hover:bg-red-600"
-                        >
-                          <Trash2 className="h-2.5 w-2.5" />
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-
-                    <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-[var(--color-text-primary)] md:text-xl md:leading-snug">
-                      {post.title}
-                    </h3>
-
-                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--color-text-secondary)] md:text-base">
-                      <LinkifyText>{post.summary}</LinkifyText>
-                    </p>
-
-                    <div className="post-card-footer mt-auto flex items-center justify-between border-t border-white/5 pt-3 text-sm text-[var(--color-text-muted)]">
-                      <span className="flex min-w-0 items-center gap-1 truncate">
-                        <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        <span className="truncate">{post.author_display_name || '익명 기여'}</span>
-                        <span className="shrink-0">· 조회 {post.view_count ?? 0}</span>
-                      </span>
-                      <span className="shrink-0 tabular-nums">
-                        {new Date(post.created_at).toLocaleDateString('ko-KR')}
-                      </span>
-                    </div>
+                  첫 글을 작성해 보세요
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {posts.map((post, idx) => (
+              <article
+                key={post.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/post/${post.id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/post/${post.id}`)}
+                className="post-card-enter group cursor-pointer px-1 py-5 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                    {getCategoryLabel(post.category)}
+                  </span>
+                  <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                    {post.title}
+                  </h3>
+                  {/* Edit/Delete — visible on hover */}
+                  <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Link
+                      to={`/post/${post.id}/edit`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded p-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300"
+                      title="수정"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setDeletePostId(post.id) }}
+                      className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                      title="삭제"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
-              )
-            })
-          )}
-        </div>
+                {post.summary?.trim() && (
+                  <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    <LinkifyText>{post.summary}</LinkifyText>
+                  </p>
+                )}
+                <div className="mt-2 flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
+                  <span>{post.author_display_name || '익명'}</span>
+                  <span>·</span>
+                  <span className="tabular-nums">{new Date(post.created_at).toLocaleDateString('ko-KR')}</span>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-0.5">
+                    <Eye className="h-3 w-3" />
+                    {post.view_count ?? 0}
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       {deletePostId && (
@@ -750,8 +255,7 @@ export function HomePage() {
             setPosts((prev) => prev.filter((p) => p.id !== deletePostId))
             setNoticePosts((prev) => prev.filter((p) => p.id !== deletePostId))
             setDeletePostId(null)
-            void fetchKnowledgeStats().then(setKnowledgeStats)
-            void updateTabCounts()
+            void updateStats()
           }}
         />
       )}
