@@ -15,7 +15,6 @@ interface Body {
 const apiKey = process.env.GEMINI_API_KEY
 
 if (!apiKey) {
-  // eslint-disable-next-line no-console
   console.warn('[Gemini] GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.')
 }
 
@@ -67,7 +66,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({ reply: text })
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('[Gemini] error', error)
     return res
       .status(500)

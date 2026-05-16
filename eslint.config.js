@@ -19,5 +19,14 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      'id-denylist': ['error', 'temp', 'foo', 'data2'],
+      'indent': ['error', 2, { SwitchCase: 1 }],
+      'no-console': ['error', { allow: ['warn', 'error'] }],
+      'no-debugger': 'error',
+      'quotes': ['error', 'single', { avoidEscape: true }],
+      'semi': ['error', 'never'],
+    },
   },
 ])
