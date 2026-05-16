@@ -89,17 +89,16 @@ export function TopAnnouncementBanner({ offsetTopPx, onReserveHeightChange }: To
         onTransitionEnd={handleTransitionEnd}
       >
         <div
-          className="relative flex items-center gap-1.5 rounded-full border border-white/20 py-1 pl-2.5 pr-7 text-white sm:gap-2 sm:py-1.5 sm:pl-3 sm:pr-8"
+          className="relative flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-100 py-1 pl-2.5 pr-7 text-zinc-700 sm:gap-2 sm:py-1.5 sm:pl-3 sm:pr-8 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
           style={{
-            background: 'linear-gradient(135deg, var(--color-accent, #dc2626), #ff4444)',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.12)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           }}
         >
           <a
             href={NOTION_COMMUNITY_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-0 min-w-0 flex-1 items-center justify-center gap-1.5 text-center text-[11px] font-medium leading-tight text-white no-underline transition-opacity hover:opacity-90 sm:gap-2 sm:text-xs md:text-[13px]"
+            className="flex min-h-0 min-w-0 flex-1 items-center justify-center gap-1.5 text-center text-[11px] font-medium leading-tight text-zinc-700 no-underline transition-opacity hover:opacity-80 dark:text-zinc-300 sm:gap-2 sm:text-xs md:text-[13px]"
           >
             <span className="shrink-0 text-sm leading-none sm:text-base" aria-hidden>
               🚒
@@ -114,7 +113,7 @@ export function TopAnnouncementBanner({ offsetTopPx, onReserveHeightChange }: To
           <button
             type="button"
             onClick={handleClose}
-            className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 sm:right-1.5 sm:h-7 sm:w-7"
+            className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-700 sm:right-1.5 sm:h-7 sm:w-7"
             aria-label="공지 배너 닫기"
           >
             <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />

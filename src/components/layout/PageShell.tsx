@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { Logo } from '../Logo'
 import { useState, useEffect, useCallback } from 'react'
 import {
   getSupabaseStatus,
@@ -97,23 +96,18 @@ export function PageShell({ children }: PageShellProps) {
       </main>
 
       {/* Footer */}
-      <footer className="footer-site mt-8 border-t border-white/5 py-8">
+      <footer className="mt-8 border-t border-zinc-200 py-8 dark:border-zinc-800">
         <div className="mx-auto flex max-w-6xl flex-col items-start gap-4 px-5 md:flex-row md:flex-wrap md:items-center md:justify-between md:px-8">
-          <div className="flex items-start gap-3">
-            <span className="inline-flex shrink-0">
-              <Logo size={24} className="drop-shadow-[0_2px_8px_rgba(220,38,38,0.35)]" />
-            </span>
-            <div className="min-w-0 space-y-1">
-              <p className="text-xs text-[var(--color-text-faint)]">
-                © {new Date().getFullYear()} 서울소방 GPT — AI 지식 아카이브
-              </p>
-              <p className="text-xs text-[var(--color-text-faint)]">검증된 정보만 제공합니다.</p>
-            </div>
+          <div className="min-w-0 space-y-1">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              © {new Date().getFullYear()} 서울소방 GPT — AI 지식 아카이브
+            </p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">검증된 정보만 제공합니다.</p>
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
             <div
-              className="flex items-center gap-2 text-xs text-[var(--color-text-faint)]"
+              className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500"
               title={
                 supabaseStatus.env
                   ? supabaseStatus.connection === true
@@ -126,13 +120,13 @@ export function PageShell({ children }: PageShellProps) {
             >
               {!supabaseStatus.env ? (
                 <>
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-500 shadow-[0_0_6px_rgba(113,113,122,0.35)]" />
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-400" />
                   <span className="flex flex-wrap items-center gap-x-1 gap-y-1">
                     <span>Supabase 미연동</span>
                     <button
                       type="button"
                       onClick={() => setSupabaseModalOpen(true)}
-                      className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-red-500 hover:bg-red-500/10"
+                      className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
                     >
                       연결
                     </button>
@@ -140,26 +134,23 @@ export function PageShell({ children }: PageShellProps) {
                 </>
               ) : supabaseStatus.connection === true ? (
                 <>
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]"
-                    aria-hidden
-                  />
-                  <span className="text-green-500">Supabase 연결됨</span>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" aria-hidden />
+                  <span className="text-green-600 dark:text-green-400">Supabase 연결됨</span>
                 </>
               ) : supabaseStatus.connection === false ? (
                 <>
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.4)]" />
-                  <span className="text-red-400">Supabase 연결 실패</span>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                  <span className="text-red-500">Supabase 연결 실패</span>
                 </>
               ) : (
                 <>
-                  <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.35)]" />
-                  <span className="text-[var(--color-text-muted)]">Supabase 확인 중…</span>
+                  <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-400" />
+                  <span className="text-zinc-400 dark:text-zinc-500">Supabase 확인 중…</span>
                 </>
               )}
             </div>
             <span
-              className="font-mono text-[10px] tabular-nums text-[var(--color-text-faint)]"
+              className="font-mono text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500"
               title="GitHub main과 동일한 짧은 해시면 동일 빌드입니다. local은 개발 모드입니다."
             >
               빌드 {__GIT_SHA__}
