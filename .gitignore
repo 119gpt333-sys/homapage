@@ -17,3 +17,6 @@ Thumbs.db
 .vercel
 
 .vercel
+
+# Claude Code local settings/memory
+.claude/
